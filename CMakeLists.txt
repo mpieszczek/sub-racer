@@ -22,6 +22,20 @@ FetchContent_MakeAvailable(raylib)
 add_executable(${PROJECT_NAME})
 add_subdirectory(src)
 
+# libmpv configuration
+set(LIBMPV_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/external/libmpv/include)
+set(LIBMPV_LIBRARY ${CMAKE_SOURCE_DIR}/external/libmpv/libmpv.dll.a)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${LIBMPV_INCLUDE_DIR})
+target_link_libraries(${PROJECT_NAME} ${LIBMPV_LIBRARY})
+
+# Copy libmpv DLL to output directory
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/external/libmpv/libmpv-2.dll
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/libmpv-2.dll
+)
+
 set_target_properties(${PROJECT_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${PROJECT_NAME})
 
