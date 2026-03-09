@@ -80,3 +80,4 @@ android.*
 !src/shell.html
 
 CMakePresets.json
+external
