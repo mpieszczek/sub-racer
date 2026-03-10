@@ -15,6 +15,67 @@
 #define SCREEN_HEIGHT 720
 #define SIDE_PANEL_WIDTH 300
 
+static char currentVideoPath[512] = { 0 };
+static bool showExportMessage = false;
+static char exportMessage[256] = { 0 };
+static bool exportSuccess = false;
+
+static void format_srt_time(double seconds, char* output) {
+    int hours = (int)(seconds / 3600);
+    int minutes = (int)((seconds - hours * 3600) / 60);
+    int secs = (int)(seconds - hours * 3600 - minutes * 60);
+    int millis = (int)((seconds - (int)seconds) * 1000);
+    snprintf(output, 16, "%02d:%02d:%02d,%03d", hours, minutes, secs, millis);
+}
+
+static bool export_subtitles_to_srt(SubtitleList* list, const char* videoPath) {
+    if (!list || list->count == 0) {
+        snprintf(exportMessage, sizeof(exportMessage), "No subtitles to export");
+        return false;
+    }
+    
+    if (!videoPath || videoPath[0] == '\0') {
+        snprintf(exportMessage, sizeof(exportMessage), "No video file loaded");
+        return false;
+    }
+    
+    // Build .srt path
+    char srtPath[512];
+    strncpy(srtPath, videoPath, sizeof(srtPath) - 1);
+    srtPath[sizeof(srtPath) - 1] = '\0';
+    
+    char* dot = strrchr(srtPath, '.');
+    if (dot) {
+        strcpy(dot, ".srt");
+    } else {
+        strcat(srtPath, ".srt");
+    }
+    
+    FILE* f = fopen(srtPath, "w");
+    if (!f) {
+        snprintf(exportMessage, sizeof(exportMessage), "Failed to create file: %s", srtPath);
+        return false;
+    }
+    
+    for (int i = 0; i < list->count; i++) {
+        Subtitle* sub = &list->items[i];
+        
+        char startStr[16];
+        char endStr[16];
+        format_srt_time(sub->startTime, startStr);
+        format_srt_time(sub->endTime, endStr);
+        
+        fprintf(f, "%d\n", i + 1);
+        fprintf(f, "%s --> %s\n", startStr, endStr);
+        fprintf(f, "%s\n\n", sub->text ? sub->text : "");
+    }
+    
+    fclose(f);
+    
+    snprintf(exportMessage, sizeof(exportMessage), "Exported %d subtitles to:\n%s", list->count, srtPath);
+    return true;
+}
+
 static const char* supportedExtensions[] = { ".mp4", ".avi", ".mkv", ".mov", ".webm" };
 
 static bool has_video_extension(const char* filename) {
@@ -64,6 +125,8 @@ int main(int argc, char* argv[]) {
         } else {
             printf("Video loaded!\n");
             vp_play(vp);
+            strncpy(currentVideoPath, videoFile, sizeof(currentVideoPath) - 1);
+            currentVideoPath[sizeof(currentVideoPath) - 1] = '\0';
         }
     }
     
@@ -85,6 +148,8 @@ int main(int argc, char* argv[]) {
                         if (vp_load(vp, file)) {
                             videoFile = file;
                             vp_play(vp);
+                            strncpy(currentVideoPath, file, sizeof(currentVideoPath) - 1);
+                            currentVideoPath[sizeof(currentVideoPath) - 1] = '\0';
                             printf("Video loaded successfully\n");
                         } else {
                             printf("Failed to load dropped video\n");
@@ -199,7 +264,10 @@ int main(int argc, char* argv[]) {
                 DrawText(timeText, 10, panelY + 40, 20, WHITE);
                 
                 Rectangle exportBtn = { videoW - 100, panelY + 40, 90, 20 };
-                GuiButton(exportBtn, "Export");
+                if (GuiButton(exportBtn, "Export")) {
+                    exportSuccess = export_subtitles_to_srt(&subtitles, currentVideoPath);
+                    showExportMessage = true;
+                }
                 
                 char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: Seek";
                 DrawText(helpText, 10, panelY + 70, 20, YELLOW);
