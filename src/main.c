@@ -57,6 +57,10 @@ int main(int argc, char* argv[]) {
         }
     }
     
+    static float lastSliderValue = 0;
+    static bool wasPlayingBeforeDrag = false;
+    static bool isDragging = false;
+    
     while (!WindowShouldClose()) {
         if (IsFileDropped()) {
             FilePathList droppedFiles = LoadDroppedFiles();
@@ -131,15 +135,34 @@ int main(int argc, char* argv[]) {
                 double time = vp_get_time(vp);
                 double dur = vp_get_duration(vp);
                 
-                float sliderValue = (float)time;
                 float sliderMax = (float)dur;
                 if (sliderMax <= 0) sliderMax = 1;
                 
+                float sliderValue = (float)time;
+                
                 Rectangle sliderRec = { 100, panelY + 10, screenW - 200, 20 };
+                
+                float prevSliderValue = sliderValue;
                 GuiSlider(sliderRec, NULL, NULL, &sliderValue, 0, sliderMax);
                 
-                if (sliderValue != time && dur > 0) {
-                    vp_seek(vp, sliderValue);
+                bool mouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
+                
+                if (!isDragging && sliderValue != prevSliderValue && mouseDown) {
+                    isDragging = true;
+                    wasPlayingBeforeDrag = vp_is_playing(vp);
+                    vp_pause(vp);
+                }
+                
+                if (isDragging) {
+                    if (!mouseDown) {
+                        isDragging = false;
+                        vp_seek(vp, sliderValue);
+                        if (wasPlayingBeforeDrag) {
+                            vp_play(vp);
+                        }
+                    } else if (sliderValue != time) {
+                        vp_seek(vp, sliderValue);
+                    }
                 }
                 
                 char timeText[64];
