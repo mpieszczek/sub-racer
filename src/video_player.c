@@ -41,6 +41,8 @@ VideoPlayer* vp_create(void) {
         return NULL;
     }
     
+    mpv_set_option_string(vp->mpv, "vo", "libmpv");
+    
     mpv_render_param params[] = {
         {MPV_RENDER_PARAM_API_TYPE, "sw"},
     };
@@ -51,7 +53,7 @@ VideoPlayer* vp_create(void) {
         return NULL;
     }
     
-    printf("[VideoPlayer] Created successfully\n");
+    printf("[VideoPlayer] Created with libmpv vo\n");
     return vp;
 }
 

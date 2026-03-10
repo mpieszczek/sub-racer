@@ -102,17 +102,20 @@ int main(int argc, char* argv[]) {
             int h = vp_get_height(vp);
             
             if (w > 0 && h > 0) {
-                Rectangle dest = { 
+                float margin = 0.1f;
+                Rectangle videoDest = { 
                     0, 0, 
-                    (float)SCREEN_WIDTH, (float)SCREEN_HEIGHT 
+                    (float)SCREEN_WIDTH, (float)(SCREEN_HEIGHT * (1.0f - margin)) 
                 };
-                vp_render(vp, dest);
+                vp_render(vp, videoDest);
+                
+                DrawRectangle(0, SCREEN_HEIGHT * (1.0f - margin), SCREEN_WIDTH, SCREEN_HEIGHT * margin, Fade(GREEN, 0.1f));
                 
                 double time = vp_get_time(vp);
                 double dur = vp_get_duration(vp);
                 
-                DrawText(TextFormat("Time: %.1f / %.1f", time, dur), 10, 10, 20, WHITE);
-                DrawText("SPACE: Play/Pause | LEFT/RIGHT: Seek 5s | Drag file to open", 10, 40, 20, YELLOW);
+                DrawText(TextFormat("Time: %.1f / %.1f", time, dur), 10, (int)(SCREEN_HEIGHT * (1.0f - margin)) + 10, 20, WHITE);
+                DrawText("SPACE: Play/Pause | LEFT/RIGHT: Seek 5s | Drag file to open", 10, (int)(SCREEN_HEIGHT * (1.0f - margin)) + 40, 20, YELLOW);
             } else {
                 DrawText("Loading video...", SCREEN_WIDTH/2 - 60, SCREEN_HEIGHT/2, 20, YELLOW);
             }
