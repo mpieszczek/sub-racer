@@ -396,6 +396,26 @@ int main(int argc, char* argv[]) {
         
         int screenW = GetScreenWidth();
         DrawFPS(screenW - 80, 10);
+        if (showExportMessage) {
+            int screenW = GetScreenWidth();
+            int screenH = GetScreenHeight();
+            Rectangle msgBox = { 
+                screenW/2 - 150, 
+                screenH/2 - 60, 
+                300, 120 
+            };
+            
+            int result = GuiMessageBox(
+                msgBox,
+                exportSuccess ? "#191#Export Success" : "#198#Export Error",
+                exportMessage,
+                "OK"
+            );
+            
+            if (result >= 0) {
+                showExportMessage = false;
+            }
+        }
         EndDrawing();
     }
     
