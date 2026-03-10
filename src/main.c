@@ -26,6 +26,7 @@ static bool has_video_extension(const char* filename) {
 
 int main(int argc, char* argv[]) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sub-Racer - Video Player");
+    SetWindowState(FLAG_WINDOW_RESIZABLE);
     
     SetTargetFPS(60);
     
@@ -94,10 +95,16 @@ int main(int argc, char* argv[]) {
             vp_seek(vp, t + 5.0);
         }
         
+        if (IsKeyPressed(KEY_F11)) {
+            ToggleFullscreen();
+        }
+        
         BeginDrawing();
         ClearBackground(BLACK);
         
         if (vp_is_loaded(vp)) {
+            int screenW = GetScreenWidth();
+            int screenH = GetScreenHeight();
             int w = vp_get_width(vp);
             int h = vp_get_height(vp);
             
@@ -105,28 +112,35 @@ int main(int argc, char* argv[]) {
                 float margin = 0.1f;
                 Rectangle videoDest = { 
                     0, 0, 
-                    (float)SCREEN_WIDTH, (float)(SCREEN_HEIGHT * (1.0f - margin)) 
+                    (float)screenW, (float)(screenH * (1.0f - margin)) 
                 };
                 vp_render(vp, videoDest);
                 
-                DrawRectangle(0, SCREEN_HEIGHT * (1.0f - margin), SCREEN_WIDTH, SCREEN_HEIGHT * margin, Fade(GREEN, 0.1f));
+                DrawRectangleLinesEx(videoDest, 2.0f, RED);
+                
+                DrawRectangle(0, (int)(screenH * (1.0f - margin)), screenW, (int)(screenH * margin), Fade(GREEN, 0.1f));
                 
                 double time = vp_get_time(vp);
                 double dur = vp_get_duration(vp);
                 
-                DrawText(TextFormat("Time: %.1f / %.1f", time, dur), 10, (int)(SCREEN_HEIGHT * (1.0f - margin)) + 10, 20, WHITE);
-                DrawText("SPACE: Play/Pause | LEFT/RIGHT: Seek 5s | Drag file to open", 10, (int)(SCREEN_HEIGHT * (1.0f - margin)) + 40, 20, YELLOW);
+                DrawText(TextFormat("Time: %.1f / %.1f", time, dur), 10, (int)(screenH * (1.0f - margin)) + 10, 20, WHITE);
+                DrawText("SPACE: Play/Pause | LEFT/RIGHT: Seek 5s | Drag file to open", 10, (int)(screenH * (1.0f - margin)) + 40, 20, YELLOW);
             } else {
-                DrawText("Loading video...", SCREEN_WIDTH/2 - 60, SCREEN_HEIGHT/2, 20, YELLOW);
+                int screenW = GetScreenWidth();
+                int screenH = GetScreenHeight();
+                DrawText("Loading video...", screenW/2 - 60, screenH/2, 20, YELLOW);
             }
         } else {
-            int cx = SCREEN_WIDTH / 2;
-            int cy = SCREEN_HEIGHT / 2;
+            int screenW = GetScreenWidth();
+            int screenH = GetScreenHeight();
+            int cx = screenW / 2;
+            int cy = screenH / 2;
             DrawText("Drag and drop a video file here", cx - 160, cy - 20, 20, GRAY);
             DrawText("or run: sub-racer.exe <video.mp4>", cx - 170, cy + 15, 20, GRAY);
         }
         
-        DrawFPS(SCREEN_WIDTH - 80, 10);
+        int screenW = GetScreenWidth();
+        DrawFPS(screenW - 80, 10);
         EndDrawing();
     }
     
