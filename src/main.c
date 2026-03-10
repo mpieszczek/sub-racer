@@ -169,7 +169,7 @@ int main(int argc, char* argv[]) {
                 
                 float sliderValue = (float)time;
                 
-                Rectangle sliderRec = { 100, panelY + 10, videoW - 200, 20 };
+                Rectangle sliderRec = { 10, panelY + 10, videoW - 20, 20 };
                 
                 float prevSliderValue = sliderValue;
                 GuiSlider(sliderRec, NULL, NULL, &sliderValue, 0, sliderMax);
@@ -196,10 +196,13 @@ int main(int argc, char* argv[]) {
                 
                 char timeText[64];
                 snprintf(timeText, sizeof(timeText), "%.1f / %.1f", time, dur);
-                DrawText(timeText, 10, panelY + 10, 20, WHITE);
+                DrawText(timeText, 10, panelY + 40, 20, WHITE);
+                
+                Rectangle exportBtn = { videoW - 100, panelY + 40, 90, 20 };
+                GuiButton(exportBtn, "Export");
                 
                 char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: Seek";
-                DrawText(helpText, videoW - 180, panelY + 10, 20, YELLOW);
+                DrawText(helpText, 10, panelY + 70, 20, YELLOW);
             } else {
                 int screenW = GetScreenWidth();
                 int screenH = GetScreenHeight();
