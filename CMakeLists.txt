@@ -8,6 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Dependencies
 set(RAYLIB_VERSION 5.5)
+set(RAYGUI_VERSION 4.0)
 
 FetchContent_Declare(
     raylib
@@ -16,7 +17,14 @@ FetchContent_Declare(
     FIND_PACKAGE_ARGS
 )
 
-FetchContent_MakeAvailable(raylib)
+FetchContent_Declare(
+    raygui
+    DOWNLOAD_EXTRACT_TIMESTAMP OFF
+    URL https://github.com/raysan5/raygui/archive/refs/tags/${RAYGUI_VERSION}.tar.gz
+    FIND_PACKAGE_ARGS
+)
+
+FetchContent_MakeAvailable(raylib raygui)
 
 # Our Project
 add_executable(${PROJECT_NAME})
@@ -26,7 +34,10 @@ add_subdirectory(src)
 set(LIBMPV_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/external/libmpv/include)
 set(LIBMPV_LIBRARY ${CMAKE_SOURCE_DIR}/external/libmpv/libmpv.dll.a)
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${LIBMPV_INCLUDE_DIR})
+# raygui - use fetched version
+set(RAYGUI_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/raygui-src/src)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${LIBMPV_INCLUDE_DIR} ${RAYGUI_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} ${LIBMPV_LIBRARY})
 
 # Copy libmpv DLL to output directory

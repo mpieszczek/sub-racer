@@ -1,8 +1,10 @@
 /*******************************************************************************************
-*   Sub-Racer - Video Subtitle Editor
-*******************************************************************************************/
+ *   Sub-Racer - Video Subtitle Editor
+ *******************************************************************************************/
 
 #include "raylib.h"
+#define RAYGUI_IMPLEMENTATION
+#include "raygui.h"
 #include "video_player.h"
 #include <stdio.h>
 #include <string.h>
@@ -27,6 +29,8 @@ static bool has_video_extension(const char* filename) {
 int main(int argc, char* argv[]) {
     InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Sub-Racer - Video Player");
     SetWindowState(FLAG_WINDOW_RESIZABLE);
+    
+    GuiLoadStyleDefault();
     
     SetTargetFPS(60);
     
@@ -119,13 +123,32 @@ int main(int argc, char* argv[]) {
                 Rectangle videoRect = vp_get_video_rect(vp, videoDest);
                 DrawRectangleLinesEx(videoRect, 2.0f, RED);
                 
-                DrawRectangle(0, (int)(screenH * (1.0f - margin)), screenW, (int)(screenH * margin), Fade(GREEN, 0.1f));
+                int panelY = (int)(screenH * (1.0f - margin));
+                int panelH = (int)(screenH * margin);
+                
+                DrawRectangle(0, panelY, screenW, panelH, (Color){40, 40, 40, 255});
                 
                 double time = vp_get_time(vp);
                 double dur = vp_get_duration(vp);
                 
-                DrawText(TextFormat("Time: %.1f / %.1f", time, dur), 10, (int)(screenH * (1.0f - margin)) + 10, 20, WHITE);
-                DrawText("SPACE: Play/Pause | LEFT/RIGHT: Seek 5s | Drag file to open", 10, (int)(screenH * (1.0f - margin)) + 40, 20, YELLOW);
+                float sliderValue = (float)time;
+                float sliderMax = (float)dur;
+                if (sliderMax <= 0) sliderMax = 1;
+                
+                Rectangle sliderRec = { 100, panelY + 10, screenW - 200, 20 };
+                GuiSlider(sliderRec, NULL, NULL, &sliderValue, 0, sliderMax);
+                
+                if (sliderValue != time && dur > 0) {
+                    vp_seek(vp, sliderValue);
+                }
+                
+                char timeText[64];
+                snprintf(timeText, sizeof(timeText), "%.1f / %.1f", time, dur);
+                DrawText(timeText, 10, panelY + 10, 20, WHITE);
+                
+                char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: Seek 5s | Drag file to open";
+                int textWidth = MeasureText(helpText, 20);
+                DrawText(helpText, screenW - textWidth - 10, panelY + 10, 20, YELLOW);
             } else {
                 int screenW = GetScreenWidth();
                 int screenH = GetScreenHeight();
