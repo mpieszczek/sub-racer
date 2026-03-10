@@ -28,4 +28,7 @@ double vp_get_duration(VideoPlayer* vp);
 int vp_get_width(VideoPlayer* vp);
 int vp_get_height(VideoPlayer* vp);
 
+void vp_reload_subtitles(VideoPlayer* vp);
+void vp_add_subtitles(VideoPlayer* vp, const char* path);
+
 #endif

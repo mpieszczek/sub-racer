@@ -19,6 +19,7 @@ static char currentVideoPath[512] = { 0 };
 static bool showExportMessage = false;
 static char exportMessage[256] = { 0 };
 static bool exportSuccess = false;
+static char workingSrtPath[512] = "./sub_racer_working.srt";
 
 static void format_srt_time(double seconds, char* output) {
     int hours = (int)(seconds / 3600);
@@ -26,6 +27,110 @@ static void format_srt_time(double seconds, char* output) {
     int secs = (int)(seconds - hours * 3600 - minutes * 60);
     int millis = (int)((seconds - (int)seconds) * 1000);
     snprintf(output, 16, "%02d:%02d:%02d,%03d", hours, minutes, secs, millis);
+}
+
+static double parse_srt_time(const char* timeStr) {
+    int hours = 0, minutes = 0, seconds = 0, millis = 0;
+    sscanf(timeStr, "%d:%d:%d,%d", &hours, &minutes, &seconds, &millis);
+    return hours * 3600.0 + minutes * 60.0 + seconds + millis / 1000.0;
+}
+
+static bool get_srt_path(const char* videoPath, char* srtPathOut, size_t outSize) {
+    if (!videoPath || !srtPathOut) return false;
+    
+    strncpy(srtPathOut, videoPath, outSize - 1);
+    srtPathOut[outSize - 1] = '\0';
+    
+    char* dot = strrchr(srtPathOut, '.');
+    if (dot) {
+        strcpy(dot, ".srt");
+    } else {
+        return false;
+    }
+    
+    FILE* f = fopen(srtPathOut, "r");
+    if (f) {
+        fclose(f);
+        return true;
+    }
+    return false;
+}
+
+static bool load_srt_to_subtitle_list(SubtitleList* list, const char* srtPath) {
+    if (!list || !srtPath) return false;
+    
+    FILE* f = fopen(srtPath, "r");
+    if (!f) return false;
+    
+    char line[1024];
+    int state = 0;
+    double startTime = 0, endTime = 0;
+    char textBuffer[4096] = {0};
+    
+    while (fgets(line, sizeof(line), f)) {
+        if (state == 0) {
+            state = 1;
+        }
+        else if (state == 1) {
+            char startStr[32], endStr[32];
+            if (sscanf(line, "%31s --> %31s", startStr, endStr) == 2) {
+                startTime = parse_srt_time(startStr);
+                endTime = parse_srt_time(endStr);
+                textBuffer[0] = '\0';
+                state = 2;
+            }
+        }
+        else if (state == 2) {
+            if (strcmp(line, "\n") == 0 || line[0] == '\n') {
+                if (textBuffer[0] != '\0') {
+                    size_t len = strlen(textBuffer);
+                    if (len > 0 && textBuffer[len-1] == '\n') {
+                        textBuffer[len-1] = '\0';
+                    }
+                    sublist_add(list, startTime, endTime, textBuffer);
+                }
+                state = 0;
+            } else {
+                strncat(textBuffer, line, sizeof(textBuffer) - strlen(textBuffer) - 1);
+            }
+        }
+    }
+    
+    if (state == 2 && textBuffer[0] != '\0') {
+        size_t len = strlen(textBuffer);
+        if (len > 0 && textBuffer[len-1] == '\n') {
+            textBuffer[len-1] = '\0';
+        }
+        sublist_add(list, startTime, endTime, textBuffer);
+    }
+    
+    fclose(f);
+    return list->count > 0;
+}
+
+static bool save_working_srt(SubtitleList* list) {
+    if (!list) return false;
+    
+    FILE* f = fopen(workingSrtPath, "w");
+    if (!f) {
+        return false;
+    }
+    
+    for (int i = 0; i < list->count; i++) {
+        Subtitle* sub = &list->items[i];
+        
+        char startStr[16];
+        char endStr[16];
+        format_srt_time(sub->startTime, startStr);
+        format_srt_time(sub->endTime, endStr);
+        
+        fprintf(f, "%d\n", i + 1);
+        fprintf(f, "%s --> %s\n", startStr, endStr);
+        fprintf(f, "%s\n\n", sub->text ? sub->text : "");
+    }
+    
+    fclose(f);
+    return true;
 }
 
 static bool export_subtitles_to_srt(SubtitleList* list, const char* videoPath) {
@@ -127,6 +232,15 @@ int main(int argc, char* argv[]) {
             vp_play(vp);
             strncpy(currentVideoPath, videoFile, sizeof(currentVideoPath) - 1);
             currentVideoPath[sizeof(currentVideoPath) - 1] = '\0';
+            
+            char srtPath[512];
+            if (get_srt_path(videoFile, srtPath, sizeof(srtPath))) {
+                printf("Loading SRT: %s\n", srtPath);
+                sublist_clear(&subtitles);
+                load_srt_to_subtitle_list(&subtitles, srtPath);
+                save_working_srt(&subtitles);
+                vp_add_subtitles(vp, workingSrtPath);
+            }
         }
     }
     
@@ -150,6 +264,16 @@ int main(int argc, char* argv[]) {
                             vp_play(vp);
                             strncpy(currentVideoPath, file, sizeof(currentVideoPath) - 1);
                             currentVideoPath[sizeof(currentVideoPath) - 1] = '\0';
+                            
+                            char srtPath[512];
+                            if (get_srt_path(file, srtPath, sizeof(srtPath))) {
+                                printf("Loading SRT: %s\n", srtPath);
+                                sublist_clear(&subtitles);
+                                load_srt_to_subtitle_list(&subtitles, srtPath);
+                                save_working_srt(&subtitles);
+                                vp_add_subtitles(vp, workingSrtPath);
+                            }
+                            
                             printf("Video loaded successfully\n");
                         } else {
                             printf("Failed to load dropped video\n");
@@ -205,7 +329,7 @@ int main(int argc, char* argv[]) {
                 
                 Rectangle videoRect = vp_get_video_rect(vp, videoDest);
                 DrawRectangleLinesEx(videoRect, 2.0f, RED);
-                
+                #ifdef USE_RAYLIB_TEXT
                 Subtitle* currentSub = sublist_get_at_time(&subtitles, vp_get_time(vp));
                 if (currentSub && currentSub->text && currentSub->text[0] != '\0') {
                     Font font = GetFontDefault();
@@ -220,6 +344,7 @@ int main(int argc, char* argv[]) {
                                   (Color){0, 0, 0, 150});
                     DrawTextEx(font, currentSub->text, (Vector2){textX, textY}, fontSize, 2, WHITE);
                 }
+                #endif
                 
                 int panelY = (int)(screenH * (1.0f - margin));
                 int panelH = (int)(screenH * margin);
@@ -293,6 +418,8 @@ int main(int argc, char* argv[]) {
                     snprintf(editStartStr, sizeof(editStartStr), "%.1f", sub->startTime);
                     snprintf(editEndStr, sizeof(editEndStr), "%.1f", sub->endTime);
                 }
+                save_working_srt(&subtitles);
+                vp_add_subtitles(vp, workingSrtPath);
             }
             
             int listY = 50;
@@ -377,12 +504,16 @@ int main(int argc, char* argv[]) {
                         sub->startTime = atof(editStartStr);
                         sub->endTime = atof(editEndStr);
                     }
+                    save_working_srt(&subtitles);
+                    vp_reload_subtitles(vp);
                 }
                 
                 Rectangle delBtn = { editPanel.x + editPanel.width - 45, editPanel.y + 125, 40, 20 };
                 if (GuiButton(delBtn, "DEL")) {
                     sublist_remove(&subtitles, subtitles.selectedIndex);
                     subtitles.selectedIndex = -1;
+                    save_working_srt(&subtitles);
+                    vp_reload_subtitles(vp);
                 }
             }
         } else {
