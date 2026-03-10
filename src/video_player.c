@@ -218,6 +218,24 @@ void vp_render(VideoPlayer* vp, Rectangle dest) {
     DrawTexturePro(vp->texture, src, dst, (Vector2){0, 0}, 0.0f, WHITE);
 }
 
+Rectangle vp_get_video_rect(VideoPlayer* vp, Rectangle dest) {
+    if (!vp || vp->width <= 0 || vp->height <= 0) return dest;
+    
+    float scaleX = dest.width / vp->width;
+    float scaleY = dest.height / vp->height;
+    float scale = (scaleX < scaleY) ? scaleX : scaleY;
+    
+    float newWidth = vp->width * scale;
+    float newHeight = vp->height * scale;
+    
+    return (Rectangle){
+        dest.x + (dest.width - newWidth) / 2,
+        dest.y + (dest.height - newHeight) / 2,
+        newWidth,
+        newHeight
+    };
+}
+
 void vp_play(VideoPlayer* vp) {
     if (!vp || !vp->loaded) return;
     mpv_set_property_string(vp->mpv, "pause", "no");

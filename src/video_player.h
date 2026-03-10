@@ -14,6 +14,7 @@ void vp_unload(VideoPlayer* vp);
 
 void vp_update(VideoPlayer* vp);
 void vp_render(VideoPlayer* vp, Rectangle dest);
+Rectangle vp_get_video_rect(VideoPlayer* vp, Rectangle dest);
 
 void vp_play(VideoPlayer* vp);
 void vp_pause(VideoPlayer* vp);

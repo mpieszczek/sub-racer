@@ -116,7 +116,8 @@ int main(int argc, char* argv[]) {
                 };
                 vp_render(vp, videoDest);
                 
-                DrawRectangleLinesEx(videoDest, 2.0f, RED);
+                Rectangle videoRect = vp_get_video_rect(vp, videoDest);
+                DrawRectangleLinesEx(videoRect, 2.0f, RED);
                 
                 DrawRectangle(0, (int)(screenH * (1.0f - margin)), screenW, (int)(screenH * margin), Fade(GREEN, 0.1f));
                 
