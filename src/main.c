@@ -286,10 +286,13 @@ int main(int argc, char* argv[]) {
                     endEditing = false;
                 }
                 
-                if (!startEditing && !endEditing && !textEditing && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                if ((startEditing || endEditing || textEditing) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     if (!CheckCollisionPointRec(GetMousePosition(), startRec) &&
                         !CheckCollisionPointRec(GetMousePosition(), endRec) &&
                         !CheckCollisionPointRec(GetMousePosition(), textRec)) {
+                            textEditing = false;
+                            startEditing = false;
+                            endEditing = false;
                     }
                 }
                 
@@ -305,7 +308,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 
-                Rectangle delBtn = { editPanel.x + editPanel.width - 45, editPanel.y + 5, 40, 20 };
+                Rectangle delBtn = { editPanel.x + editPanel.width - 45, editPanel.y + 125, 40, 20 };
                 if (GuiButton(delBtn, "DEL")) {
                     sublist_remove(&subtitles, subtitles.selectedIndex);
                     subtitles.selectedIndex = -1;
