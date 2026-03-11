@@ -215,6 +215,7 @@ int main(int argc, char* argv[]) {
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     
     GuiLoadStyleDefault();
+    GuiSetStyle(DEFAULT, TEXT_SIZE, 15);
     
     SetTargetFPS(60);
     
