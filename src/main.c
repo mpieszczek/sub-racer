@@ -411,7 +411,9 @@ int main(int argc, char* argv[]) {
                 DrawText("Projects:", cx - 200, listY - 20, 20, HIGHLIGHT_COLOR);
                 for (int i = projectListScroll; i < projectListCount && i < projectListScroll + visibleItems; i++) {
                     Rectangle projRec = { cx - 200, listY + (i - projectListScroll) * itemHeight, 400, 25 };
+                    bool isHovered = CheckCollisionPointRec(GetMousePosition(), projRec);
                     DrawRectangleRec(projRec, FOREGROUND_COLOR);
+                    if(isHovered) DrawRectangleLinesEx(projRec, 1, HIGHLIGHT_COLOR);
                     DrawText(projectList[i], projRec.x + 5, projRec.y + 5, 16, HIGHLIGHT_COLOR);
                     
                     if (CheckCollisionPointRec(GetMousePosition(), projRec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -790,7 +792,7 @@ int main(int argc, char* argv[]) {
                 
                 Color itemBg = (i == subtitles.selectedIndex) ? HIGHLIGHT_COLOR : FOREGROUND_COLOR;
                 DrawRectangleRec(itemRec, itemBg);
-                
+                if(CheckCollisionPointRec(GetMousePosition(), itemRec)) DrawRectangleLinesEx(itemRec,1, HIGHLIGHT_COLOR);
                 char timeStr[32];
                 format_display_time_short(sub->startTime, timeStr);
 
