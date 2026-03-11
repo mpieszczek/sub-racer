@@ -520,10 +520,10 @@ int main(int argc, char* argv[]) {
                             
                             const char* srtPath = project_get_source_srt_path();
                             if (srtPath) {
+                                sublist_clear(&subtitles);
                                 FILE* testF = fopen(srtPath, "r");
                                 if (testF) {
                                     fclose(testF);
-                                    sublist_clear(&subtitles);
                                     load_srt_to_subtitle_list(&subtitles, srtPath);
                                 }
                                 save_working_srt(&subtitles);
