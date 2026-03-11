@@ -27,6 +27,7 @@ static char currentVideoPath[512] = { 0 };
 static bool showExportMessage = false;
 static char exportMessage[256] = { 0 };
 static bool exportSuccess = false;
+static bool showOverwriteConfirm = false;
 static bool showProjectPanel = false;
 static bool showNewProjectDialog = false;
 static char newProjectName[256] = { 0 };
@@ -730,8 +731,19 @@ int main(int argc, char* argv[]) {
                 
                 Rectangle exportBtn = { videoW - 100, panelY + 40, 90, 20 };
                 if (GuiButton(exportBtn, "Export")) {
-                    exportSuccess = export_subtitles_to_srt(&subtitles, currentVideoPath);
-                    showExportMessage = true;
+                    char srtPath[512];
+                    strncpy(srtPath, currentVideoPath, sizeof(srtPath) - 1);
+                    char* dot = strrchr(srtPath, '.');
+                    if (dot) strcpy(dot, ".srt");
+                    
+                    FILE* testF = fopen(srtPath, "r");
+                    if (testF) {
+                        fclose(testF);
+                        showOverwriteConfirm = true;
+                    } else {
+                        exportSuccess = export_subtitles_to_srt(&subtitles, currentVideoPath);
+                        showExportMessage = true;
+                    }
                 }
                 
                 char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: +/-5s | comma/dot: +/- frame";
@@ -940,6 +952,32 @@ int main(int argc, char* argv[]) {
                 showExportMessage = false;
             }
         }
+        if (showOverwriteConfirm) {
+            int screenW = GetScreenWidth();
+            int screenH = GetScreenHeight();
+            Rectangle confirmBox = { 
+                screenW/2 - 150, 
+                screenH/2 - 60, 
+                300, 120 
+            };
+            
+            int result = GuiMessageBox(
+                confirmBox,
+                "#198#File Exists",
+                "The .srt file already exists.\nIt will be overwritten.\nContinue?",
+                "Continue;Abort"
+            );
+            
+            if (result >= 0) {
+                showOverwriteConfirm = false;
+                if (result == 1) {
+                    exportSuccess = export_subtitles_to_srt(&subtitles, currentVideoPath);
+                    showExportMessage = true;
+                }
+            }
+        }
+        
+        
         EndDrawing();
     }
     
