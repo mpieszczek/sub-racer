@@ -316,9 +316,30 @@ int main(int argc, char* argv[]) {
             }
             
             if (projectList && projectListCount > 0) {
-                DrawText("Projects:", cx - 200, cy + 70, 20, WHITE);
-                for (int i = 0; i < projectListCount && i < 8; i++) {
-                    Rectangle projRec = { cx - 200, cy + 100 + i * 30, 400, 25 };
+                int listY = cy + 70;
+                int listH = screenH - listY - 50;
+                if (listH < 50) listH = 50;
+                int itemHeight = 30;
+                int visibleItems = listH / itemHeight;
+                
+                int wheelMove = GetMouseWheelMove();
+                if (wheelMove != 0) {
+                    int maxScroll = projectListCount - visibleItems;
+                    if (maxScroll < 0) maxScroll = 0;
+                    projectListScroll += wheelMove;
+                    if (projectListScroll < 0) projectListScroll = 0;
+                    if (projectListScroll > maxScroll) projectListScroll = maxScroll;
+                }
+                
+                if (projectListCount <= visibleItems) {
+                    projectListScroll = 0;
+                } else if (projectListScroll > projectListCount - visibleItems) {
+                    projectListScroll = projectListCount - visibleItems;
+                }
+                
+                DrawText("Projects:", cx - 200, listY - 20, 20, WHITE);
+                for (int i = projectListScroll; i < projectListCount && i < projectListScroll + visibleItems; i++) {
+                    Rectangle projRec = { cx - 200, listY + (i - projectListScroll) * itemHeight, 400, 25 };
                     DrawRectangleRec(projRec, (Color){60, 60, 60, 255});
                     DrawText(projectList[i], projRec.x + 5, projRec.y + 5, 16, WHITE);
                     

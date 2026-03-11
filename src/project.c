@@ -254,6 +254,13 @@ char** project_list(int* count) {
     int size = 0;
     char** list = malloc(capacity * sizeof(char*));
     
+    typedef struct {
+        char name[256];
+        FILETIME mtime;
+    } ProjectEntry;
+    
+    ProjectEntry* entries = malloc(capacity * sizeof(ProjectEntry));
+    
     hFind = FindFirstFileA(searchPath, &data);
     if (hFind != INVALID_HANDLE_VALUE) {
         do {
@@ -262,11 +269,16 @@ char** project_list(int* count) {
                 if (size >= capacity) {
                     capacity *= 2;
                     list = realloc(list, capacity * sizeof(char*));
+                    entries = realloc(entries, capacity * sizeof(ProjectEntry));
                 }
                 
                 char name[256];
                 strncpy(name, data.cFileName, len - 9);
                 name[len - 9] = '\0';
+                
+                strncpy(entries[size].name, name, 255);
+                entries[size].name[255] = '\0';
+                entries[size].mtime = data.ftLastWriteTime;
                 
                 list[size] = malloc(strlen(name) + 1);
                 strcpy(list[size], name);
@@ -275,6 +287,23 @@ char** project_list(int* count) {
         } while (FindNextFileA(hFind, &data));
         FindClose(hFind);
     }
+    
+    for (int i = 0; i < size - 1; i++) {
+        for (int j = i + 1; j < size; j++) {
+            int cmp = CompareFileTime(&entries[j].mtime, &entries[i].mtime);
+            if (cmp > 0) {
+                ProjectEntry temp = entries[i];
+                entries[i] = entries[j];
+                entries[j] = temp;
+                
+                char* tmp = list[i];
+                list[i] = list[j];
+                list[j] = tmp;
+            }
+        }
+    }
+    
+    free(entries);
     
     *count = size;
     return list;
@@ -289,18 +318,35 @@ char** project_list(int* count) {
     int size = 0;
     char** list = malloc(capacity * sizeof(char*));
     
+    typedef struct {
+        char name[256];
+        time_t mtime;
+    } ProjectEntry;
+    
+    ProjectEntry* entries = malloc(capacity * sizeof(ProjectEntry));
+    
     struct dirent* entry;
+    struct stat st;
     while ((entry = readdir(dir)) != NULL) {
         int len = strlen(entry->d_name);
         if (len > 9 && strcmp(entry->d_name + len - 9, ".subracer") == 0) {
             if (size >= capacity) {
                 capacity *= 2;
                 list = realloc(list, capacity * sizeof(char*));
+                entries = realloc(entries, capacity * sizeof(ProjectEntry));
             }
             
             char name[256];
             strncpy(name, entry->d_name, len - 9);
             name[len - 9] = '\0';
+            
+            strncpy(entries[size].name, name, 255);
+            entries[size].name[255] = '\0';
+            
+            char fullPath[512];
+            snprintf(fullPath, sizeof(fullPath), "%s/%s", projectsDir, entry->d_name);
+            stat(fullPath, &st);
+            entries[size].mtime = st.st_mtime;
             
             list[size] = malloc(strlen(name) + 1);
             strcpy(list[size], name);
@@ -309,6 +355,22 @@ char** project_list(int* count) {
     }
     
     closedir(dir);
+    
+    for (int i = 0; i < size - 1; i++) {
+        for (int j = i + 1; j < size; j++) {
+            if (entries[j].mtime > entries[i].mtime) {
+                ProjectEntry temp = entries[i];
+                entries[i] = entries[j];
+                entries[j] = temp;
+                
+                char* tmp = list[i];
+                list[i] = list[j];
+                list[j] = tmp;
+            }
+        }
+    }
+    
+    free(entries);
     
     *count = size;
     return list;
