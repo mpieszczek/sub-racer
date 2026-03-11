@@ -87,6 +87,13 @@ const char* project_get_working_srt_path(void) {
     return currentProject.projectPath;
 }
 
+const char* project_get_source_srt_path(void) {
+    if (!hasCurrentProject) {
+        return NULL;
+    }
+    return currentProject.sourceSrtPath;
+}
+
 const char* project_get_video_path(void) {
     if (!hasCurrentProject) {
         return NULL;
@@ -142,6 +149,21 @@ static bool load_project_file(const char* name, char* videoPathOut, char* workin
     return true;
 }
 
+static void get_srt_file_path_from_video_path(const char* videoPath, char* result, int maxLen) {
+    // Copy the full path first
+    strncpy(result, videoPath, maxLen - 1);
+    result[maxLen - 1] = '\0';
+    
+    // Find the last dot to replace the extension
+    char* dot = strrchr(result, '.');
+    if (dot) {
+        strcpy(dot, ".srt");
+    } else {
+        // No extension found, just append .srt
+        strncat(result, ".srt", maxLen - strlen(result) - 1);
+    }
+}
+
 static void generate_unique_name(const char* baseName, const char* ext, char* result, int maxLen) {
     char testPath[512];
     
@@ -173,6 +195,10 @@ bool project_create(const char* name, const char* videoPath) {
     char srtBase[256];
     snprintf(srtBase, sizeof(srtBase), "%s_working.srt", uniqueName);
     generate_unique_name(srtBase, ".srt", workingSrtFile, sizeof(workingSrtFile));
+
+    char sourceSrtPath[512];
+    get_srt_file_path_from_video_path(videoPath, sourceSrtPath, sizeof(sourceSrtPath));
+
     
     if (!save_project_file(uniqueName, videoPath, workingSrtFile)) {
         printf("[Project] Failed to create project file\n");
@@ -187,6 +213,9 @@ bool project_create(const char* name, const char* videoPath) {
     
     strncpy(currentProject.workingSrtFile, workingSrtFile, sizeof(currentProject.workingSrtFile) - 1);
     currentProject.workingSrtFile[sizeof(currentProject.workingSrtFile) - 1] = '\0';
+
+    strncpy(currentProject.sourceSrtPath, sourceSrtPath, sizeof(currentProject.sourceSrtPath) - 1);
+    currentProject.sourceSrtPath[sizeof(currentProject.sourceSrtPath) - 1] = '\0';
     
     snprintf(currentProject.projectPath, sizeof(currentProject.projectPath), 
              "%s/%s", projectsDir, workingSrtFile);
@@ -212,6 +241,10 @@ bool project_load(const char* name) {
         printf("[Project] Video file not found: %s\n", videoPath);
         return false;
     }
+
+    char sourceSrtPath[512];
+    get_srt_file_path_from_video_path(videoPath, sourceSrtPath, sizeof(sourceSrtPath));
+
     
     strncpy(currentProject.name, name, sizeof(currentProject.name) - 1);
     currentProject.name[sizeof(currentProject.name) - 1] = '\0';
@@ -221,6 +254,9 @@ bool project_load(const char* name) {
     
     strncpy(currentProject.workingSrtFile, workingSrtFile, sizeof(currentProject.workingSrtFile) - 1);
     currentProject.workingSrtFile[sizeof(currentProject.workingSrtFile) - 1] = '\0';
+
+    strncpy(currentProject.sourceSrtPath, sourceSrtPath, sizeof(currentProject.sourceSrtPath) - 1);
+    currentProject.sourceSrtPath[sizeof(currentProject.sourceSrtPath) - 1] = '\0';
     
     snprintf(currentProject.projectPath, sizeof(currentProject.projectPath), 
              "%s/%s", projectsDir, workingSrtFile);

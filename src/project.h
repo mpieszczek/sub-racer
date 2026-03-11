@@ -8,12 +8,14 @@ typedef struct {
     char videoPath[512];
     char workingSrtFile[256];
     char projectPath[512];
+    char sourceSrtPath[512];
 } Project;
 
 void project_init(void);
 const char* project_get_exe_dir(void);
 const char* project_get_projects_dir(void);
 const char* project_get_working_srt_path(void);
+const char* project_get_source_srt_path(void);
 const char* project_get_video_path(void);
 const char* project_get_name(void);
 
