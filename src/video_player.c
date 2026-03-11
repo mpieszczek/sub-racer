@@ -255,6 +255,34 @@ void vp_stop(VideoPlayer* vp) {
     vp->playing = false;
 }
 
+void vp_unload(VideoPlayer* vp) {
+    if (!vp) return;
+    
+    if (vp->mpv) {
+        const char* cmd[] = { "stop", NULL };
+        mpv_command(vp->mpv, cmd);
+    }
+    
+    if (vp->texture.id != 0) {
+        UnloadTexture(vp->texture);
+        vp->texture.id = 0;
+    }
+    
+    if (vp->pixelBuffer) {
+        free(vp->pixelBuffer);
+        vp->pixelBuffer = NULL;
+    }
+    
+    vp->width = 0;
+    vp->height = 0;
+    vp->duration = 0.0;
+    vp->playing = false;
+    vp->loaded = false;
+    vp->videoReady = false;
+    
+    printf("[VideoPlayer] Unloaded\n");
+}
+
 void vp_seek(VideoPlayer* vp, double timeSec) {
     if (!vp || !vp->loaded) return;
     

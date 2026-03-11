@@ -571,6 +571,15 @@ int main(int argc, char* argv[]) {
                 }
                 #endif
                 
+                Rectangle backBtn = { 10, 10, 70, 30 };
+                if (GuiButton(backBtn, "<- Back")) {
+                    vp_unload(vp);
+                    currentVideoPath[0] = '\0';
+                    sublist_clear(&subtitles);
+                    subtitles.selectedIndex = -1;
+                    showProjectPanel = true;
+                }
+                
                 int panelY = (int)(screenH - 100);
                 int panelH = 100;
                 
