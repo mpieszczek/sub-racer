@@ -30,5 +30,6 @@ int vp_get_height(VideoPlayer* vp);
 
 void vp_refresh_subtitles(VideoPlayer* vp, const char* path);
 void vp_add_subtitles(VideoPlayer* vp, const char* path);
+double vp_get_fps(VideoPlayer* vp);
 
 #endif

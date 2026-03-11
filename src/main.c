@@ -321,6 +321,18 @@ int main(int argc, char* argv[]) {
             vp_seek(vp, t + 5.0);
         }
         
+        if ((IsKeyPressed(KEY_COMMA) || IsKeyPressed(KEY_PERIOD)) && !isTextEditing && vp_is_loaded(vp)) {
+            double fps = vp_get_fps(vp);
+            if (fps <= 0) fps = 30.0;
+            double frameTime = 1.0 / fps;
+            double t = vp_get_time(vp);
+            if (IsKeyPressed(KEY_COMMA)) {
+                vp_seek(vp, t - frameTime);
+            } else {
+                vp_seek(vp, t + frameTime);
+            }
+        }
+        
         if (IsKeyPressed(KEY_F11) && !isTextEditing) {
             ToggleFullscreen();
         }

@@ -314,3 +314,12 @@ void vp_refresh_subtitles(VideoPlayer* vp, const char* path) {
         mpv_command(vp->mpv, cmd2);
     }
 }
+
+double vp_get_fps(VideoPlayer* vp) {
+    if (!vp || !vp->mpv) return 30.0;
+    double fps = 30.0;
+    if (mpv_get_property(vp->mpv, "fps", MPV_FORMAT_DOUBLE, &fps) >= 0 && fps > 0) {
+        return fps;
+    }
+    return 30.0;
+}
