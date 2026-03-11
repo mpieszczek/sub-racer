@@ -228,7 +228,7 @@ static bool export_subtitles_to_srt(SubtitleList* list, const char* videoPath) {
     
     fclose(f);
     
-    snprintf(exportMessage, sizeof(exportMessage), "Exported %d subtitles to:\n%s", list->count, srtPath);
+    snprintf(exportMessage, sizeof(exportMessage), "Exported %d subtitles to: %s", list->count, srtPath);
     return true;
 }
 
@@ -884,9 +884,9 @@ int main(int argc, char* argv[]) {
             int screenW = GetScreenWidth();
             int screenH = GetScreenHeight();
             Rectangle msgBox = { 
-                screenW/2 - 150, 
+                screenW/2 - 500, 
                 screenH/2 - 60, 
-                300, 120 
+                1000, 120 
             };
             
             int result = GuiMessageBox(
