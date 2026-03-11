@@ -267,6 +267,7 @@ int main(int argc, char* argv[]) {
     static bool endEditing = false;
     static bool textEditing = false;
     static bool isTextEditing = false;
+    static int subtitleListScroll = 0;
     
     while (!WindowShouldClose()) {
         if (IsFileDropped()) {
@@ -453,11 +454,37 @@ int main(int argc, char* argv[]) {
             }
             
             int listY = 50;
-            int listH = screenH - listY - 10;
+            int listH = screenH - listY - 200;
+            if (listH < 50) listH = 50;
+            int itemHeight = 35;
+            int visibleItems = listH / itemHeight;
             
-            for (int i = 0; i < subtitles.count; i++) {
+            int wheelMove = GetMouseWheelMove();
+            if (wheelMove != 0) {
+                int maxScroll = subtitles.count - visibleItems;
+                if (maxScroll < 0) maxScroll = 0;
+                subtitleListScroll += wheelMove;
+                if (subtitleListScroll < 0) subtitleListScroll = 0;
+                if (subtitleListScroll > maxScroll) subtitleListScroll = maxScroll;
+            }
+            
+            // Ensure scroll is valid when list changes
+            if (subtitles.count <= visibleItems) {
+                subtitleListScroll = 0;
+            } else if (subtitleListScroll > subtitles.count - visibleItems) {
+                subtitleListScroll = subtitles.count - visibleItems;
+            }
+            
+            
+            for (int i = subtitleListScroll; i < subtitles.count && i < subtitleListScroll + visibleItems + 1; i++) {
                 Subtitle* sub = &subtitles.items[i];
-                Rectangle itemRec = { screenW - SIDE_PANEL_WIDTH + 10, listY + i * 35, SIDE_PANEL_WIDTH - 20, 30 };
+                
+                int itemY = listY + (i - subtitleListScroll) * itemHeight;
+                
+                // Skip if outside visible area
+                if (itemY < listY || itemY >= listY + listH) continue;
+                
+                Rectangle itemRec = { screenW - SIDE_PANEL_WIDTH + 10, itemY, SIDE_PANEL_WIDTH - 20, 30 };
                 
                 Color itemBg = (i == subtitles.selectedIndex) ? (Color){80, 80, 120, 255} : (Color){60, 60, 60, 255};
                 DrawRectangleRec(itemRec, itemBg);
