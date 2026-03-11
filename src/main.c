@@ -56,6 +56,21 @@ static bool get_srt_path(const char* videoPath, char* srtPathOut, size_t outSize
     return false;
 }
 
+static void sort_subtitles(SubtitleList* list) {
+    if (!list || list->count <= 1) return;
+    
+    for (int i = 1; i < list->count; i++) {
+        Subtitle key = list->items[i];
+        int j = i - 1;
+        
+        while (j >= 0 && list->items[j].startTime > key.startTime) {
+            list->items[j + 1] = list->items[j];
+            j--;
+        }
+        list->items[j + 1] = key;
+    }
+}
+
 static bool load_srt_to_subtitle_list(SubtitleList* list, const char* srtPath) {
     if (!list || !srtPath) return false;
     
@@ -411,6 +426,7 @@ int main(int argc, char* argv[]) {
                 }
                 double currentTime = vp_get_time(vp);
                 sublist_add(&subtitles, currentTime, currentTime + 3.0, "New subtitle");
+                sort_subtitles(&subtitles);
                 subtitles.selectedIndex = subtitles.count - 1;
                 Subtitle* sub = sublist_get(&subtitles, subtitles.selectedIndex);
                 if (sub) {
@@ -504,6 +520,7 @@ int main(int argc, char* argv[]) {
                         sub->startTime = atof(editStartStr);
                         sub->endTime = atof(editEndStr);
                     }
+                    sort_subtitles(&subtitles);
                     save_working_srt(&subtitles);
                     vp_refresh_subtitles(vp, workingSrtPath);
                 }
