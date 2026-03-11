@@ -239,7 +239,7 @@ int main(int argc, char* argv[]) {
                 sublist_clear(&subtitles);
                 load_srt_to_subtitle_list(&subtitles, srtPath);
                 save_working_srt(&subtitles);
-                vp_add_subtitles(vp, workingSrtPath);
+                vp_refresh_subtitles(vp, workingSrtPath);
             }
         }
     }
@@ -271,7 +271,7 @@ int main(int argc, char* argv[]) {
                                 sublist_clear(&subtitles);
                                 load_srt_to_subtitle_list(&subtitles, srtPath);
                                 save_working_srt(&subtitles);
-                                vp_add_subtitles(vp, workingSrtPath);
+                                vp_refresh_subtitles(vp, workingSrtPath);
                             }
                             
                             printf("Video loaded successfully\n");
@@ -419,7 +419,7 @@ int main(int argc, char* argv[]) {
                     snprintf(editEndStr, sizeof(editEndStr), "%.1f", sub->endTime);
                 }
                 save_working_srt(&subtitles);
-                vp_add_subtitles(vp, workingSrtPath);
+                vp_refresh_subtitles(vp, workingSrtPath);
             }
             
             int listY = 50;
@@ -505,7 +505,7 @@ int main(int argc, char* argv[]) {
                         sub->endTime = atof(editEndStr);
                     }
                     save_working_srt(&subtitles);
-                    vp_reload_subtitles(vp);
+                    vp_refresh_subtitles(vp, workingSrtPath);
                 }
                 
                 Rectangle delBtn = { editPanel.x + editPanel.width - 45, editPanel.y + 125, 40, 20 };
@@ -513,7 +513,7 @@ int main(int argc, char* argv[]) {
                     sublist_remove(&subtitles, subtitles.selectedIndex);
                     subtitles.selectedIndex = -1;
                     save_working_srt(&subtitles);
-                    vp_reload_subtitles(vp);
+                    vp_refresh_subtitles(vp, workingSrtPath);
                 }
             }
         } else {

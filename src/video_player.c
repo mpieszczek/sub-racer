@@ -305,14 +305,12 @@ int vp_get_height(VideoPlayer* vp) {
     return vp->height;
 }
 
-void vp_reload_subtitles(VideoPlayer* vp) {
+void vp_refresh_subtitles(VideoPlayer* vp, const char* path) {
     if (!vp || !vp->mpv) return;
-    const char* cmd[] = { "sub-reload", "0", NULL };
-    mpv_command(vp->mpv, cmd);
-}
-
-void vp_add_subtitles(VideoPlayer* vp, const char* path) {
-    if (!vp || !vp->mpv || !path) return;
-    const char* cmd[] = { "sub-add", path, NULL };
-    mpv_command(vp->mpv, cmd);
+    const char* cmd1[] = { "sub-remove", NULL };
+    mpv_command(vp->mpv, cmd1);
+    if (path) {
+        const char* cmd2[] = { "sub-add", path, NULL };
+        mpv_command(vp->mpv, cmd2);
+    }
 }
