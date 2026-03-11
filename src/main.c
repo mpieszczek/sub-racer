@@ -665,6 +665,14 @@ int main(int argc, char* argv[]) {
                 }
                 #endif
                 
+                if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), videoDest)) {
+                    if (vp_is_playing(vp)) {
+                        vp_pause(vp);
+                    } else {
+                        vp_play(vp);
+                    }
+                }
+                
                 Rectangle backBtn = { 10, 10, 70, 30 };
                 if (GuiButton(backBtn, "<- Back")) {
                     vp_unload(vp);
