@@ -454,7 +454,7 @@ int main(int argc, char* argv[]) {
             }
             
             int listY = 50;
-            int listH = screenH - listY - 200;
+            int listH = screenH - listY - 230;
             if (listH < 50) listH = 50;
             int itemHeight = 35;
             int visibleItems = listH / itemHeight;
