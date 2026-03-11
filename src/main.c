@@ -16,6 +16,13 @@
 #define SCREEN_HEIGHT 720
 #define SIDE_PANEL_WIDTH 300
 
+#define BACKGROUND_COLOR      CLITERAL(Color){ 15, 56, 15, 255 }
+#define BACKGROUND_COLOR_HEX  0x0f380fff
+#define FOREGROUND_COLOR      CLITERAL(Color){ 48, 98, 48, 255 }
+#define FOREGROUND_COLOR_HEX  0x306230ff
+#define HIGHLIGHT_COLOR       CLITERAL(Color){ 139, 172, 15, 255 }
+#define HIGHLIGHT_COLOR_HEX   0x8bac0fff
+
 static char currentVideoPath[512] = { 0 };
 static bool showExportMessage = false;
 static char exportMessage[256] = { 0 };
@@ -224,6 +231,21 @@ int main(int argc, char* argv[]) {
     
     GuiLoadStyleDefault();
     GuiSetStyle(DEFAULT, TEXT_SIZE, 15);
+    GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, FOREGROUND_COLOR_HEX);
+    GuiSetStyle(DEFAULT, BASE_COLOR_NORMAL, BACKGROUND_COLOR_HEX);
+    GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, HIGHLIGHT_COLOR_HEX);
+    
+    GuiSetStyle(DEFAULT, BORDER_COLOR_FOCUSED, HIGHLIGHT_COLOR_HEX);
+    GuiSetStyle(DEFAULT, BASE_COLOR_FOCUSED, FOREGROUND_COLOR_HEX);
+    GuiSetStyle(DEFAULT, TEXT_COLOR_FOCUSED, HIGHLIGHT_COLOR_HEX);
+
+    GuiSetStyle(DEFAULT, BORDER_COLOR_PRESSED, FOREGROUND_COLOR_HEX);
+    GuiSetStyle(DEFAULT, BASE_COLOR_PRESSED, HIGHLIGHT_COLOR_HEX);
+    GuiSetStyle(DEFAULT, TEXT_COLOR_PRESSED, FOREGROUND_COLOR_HEX);
+    
+    GuiSetStyle(DEFAULT, BORDER_COLOR_DISABLED, FOREGROUND_COLOR_HEX);
+    GuiSetStyle(DEFAULT, BASE_COLOR_DISABLED, BACKGROUND_COLOR_HEX);
+    GuiSetStyle(DEFAULT, TEXT_COLOR_DISABLED, FOREGROUND_COLOR_HEX);
     
     SetTargetFPS(60);
     
@@ -296,19 +318,20 @@ int main(int argc, char* argv[]) {
     static bool textEditing = false;
     static bool isTextEditing = false;
     static int subtitleListScroll = 0;
+    static int projectListScroll = 0;
     
     while (!WindowShouldClose()) {
         if (showProjectPanel) {
             BeginDrawing();
-            ClearBackground(BLACK);
+            ClearBackground(BACKGROUND_COLOR);
             
             int screenW = GetScreenWidth();
             int screenH = GetScreenHeight();
             int cx = screenW / 2;
             int cy = screenH / 2;
             
-            DrawText("Drag and drop a video file here", cx - 160, cy - 60, 20, GRAY);
-            DrawText("or run: sub-racer.exe <video.mp4>", cx - 170, cy - 30, 20, GRAY);
+            DrawText("Drag and drop a video file here", cx - 160, cy - 60, 20, FOREGROUND_COLOR);
+            DrawText("or run: sub-racer.exe <video.mp4>", cx - 170, cy - 30, 20, FOREGROUND_COLOR);
             
             Rectangle openBtn = { cx - 40, cy + 20, 80, 30 };
             if (GuiButton(openBtn, "Open")) {
@@ -337,11 +360,11 @@ int main(int argc, char* argv[]) {
                     projectListScroll = projectListCount - visibleItems;
                 }
                 
-                DrawText("Projects:", cx - 200, listY - 20, 20, WHITE);
+                DrawText("Projects:", cx - 200, listY - 20, 20, HIGHLIGHT_COLOR);
                 for (int i = projectListScroll; i < projectListCount && i < projectListScroll + visibleItems; i++) {
                     Rectangle projRec = { cx - 200, listY + (i - projectListScroll) * itemHeight, 400, 25 };
-                    DrawRectangleRec(projRec, (Color){60, 60, 60, 255});
-                    DrawText(projectList[i], projRec.x + 5, projRec.y + 5, 16, WHITE);
+                    DrawRectangleRec(projRec, FOREGROUND_COLOR);
+                    DrawText(projectList[i], projRec.x + 5, projRec.y + 5, 16, HIGHLIGHT_COLOR);
                     
                     if (CheckCollisionPointRec(GetMousePosition(), projRec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                         if (project_load(projectList[i])) {
@@ -556,7 +579,7 @@ int main(int argc, char* argv[]) {
         }
         
         BeginDrawing();
-        ClearBackground(BLACK);
+        ClearBackground(BACKGROUND_COLOR);
         
         if (vp_is_loaded(vp)) {
             int screenW = GetScreenWidth();
@@ -574,7 +597,7 @@ int main(int argc, char* argv[]) {
                 vp_render(vp, videoDest);
                 
                 Rectangle videoRect = vp_get_video_rect(vp, videoDest);
-                DrawRectangleLinesEx(videoRect, 2.0f, RED);
+                DrawRectangleLinesEx(videoRect, 2.0f, HIGHLIGHT_COLOR);
                 #ifdef USE_RAYLIB_TEXT
                 Subtitle* currentSub = sublist_get_at_time(&subtitles, vp_get_time(vp));
                 if (currentSub && currentSub->text && currentSub->text[0] != '\0') {
@@ -604,7 +627,8 @@ int main(int argc, char* argv[]) {
                 int panelY = (int)(screenH - 100);
                 int panelH = 100;
                 
-                DrawRectangle(0, panelY, videoW, panelH, (Color){40, 40, 40, 255});
+                DrawRectangle(0, panelY, videoW, panelH, BACKGROUND_COLOR);
+                DrawRectangleLines(0, panelY, videoW, panelH, FOREGROUND_COLOR);
                 
                 double time = vp_get_time(vp);
                 double dur = vp_get_duration(vp);
@@ -641,7 +665,7 @@ int main(int argc, char* argv[]) {
                 
                 char timeText[64];
                 snprintf(timeText, sizeof(timeText), "%.3f / %.3f", time, dur);
-                DrawText(timeText, 10, panelY + 40, 20, WHITE);
+                DrawText(timeText, 10, panelY + 40, 20, HIGHLIGHT_COLOR);
                 
                 Rectangle exportBtn = { videoW - 100, panelY + 40, 90, 20 };
                 if (GuiButton(exportBtn, "Export")) {
@@ -650,14 +674,16 @@ int main(int argc, char* argv[]) {
                 }
                 
                 char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: +/-5s | comma/dot: +/- frame";
-                DrawText(helpText, 10, panelY + 70, 20, YELLOW);
+                DrawText(helpText, 10, panelY + 70, 20, FOREGROUND_COLOR);
             } else {
                 int screenW = GetScreenWidth();
                 int screenH = GetScreenHeight();
-                DrawText("Loading video...", (screenW - SIDE_PANEL_WIDTH)/2 - 60, screenH/2, 20, YELLOW);
+                DrawText("Loading video...", (screenW - SIDE_PANEL_WIDTH)/2 - 60, screenH/2, 20, HIGHLIGHT_COLOR);
             }
             
-            DrawRectangle(screenW - SIDE_PANEL_WIDTH, 0, SIDE_PANEL_WIDTH, screenH, (Color){50, 50, 50, 255});
+            DrawRectangle(screenW - SIDE_PANEL_WIDTH, 0, SIDE_PANEL_WIDTH, screenH, BACKGROUND_COLOR);
+            DrawRectangleLines(screenW - SIDE_PANEL_WIDTH, 0, SIDE_PANEL_WIDTH, screenH, FOREGROUND_COLOR);
+
             
             Rectangle headerBtn = { screenW - SIDE_PANEL_WIDTH + 10, 10, SIDE_PANEL_WIDTH - 20, 30 };
             if (GuiButton(headerBtn, "+ Add")) {
@@ -711,22 +737,22 @@ int main(int argc, char* argv[]) {
                 
                 Rectangle itemRec = { screenW - SIDE_PANEL_WIDTH + 10, itemY, SIDE_PANEL_WIDTH - 20, 30 };
                 
-                Color itemBg = (i == subtitles.selectedIndex) ? (Color){80, 80, 120, 255} : (Color){60, 60, 60, 255};
+                Color itemBg = (i == subtitles.selectedIndex) ? HIGHLIGHT_COLOR : FOREGROUND_COLOR;
                 DrawRectangleRec(itemRec, itemBg);
                 
                 char timeStr[32];
                 int startMin = (int)(sub->startTime / 60);
                 int startSec = (int)((int)sub->startTime % 60);
                 snprintf(timeStr, sizeof(timeStr), "%02d:%02d", startMin, startSec);
-                
-                DrawText(timeStr, itemRec.x + 5, itemRec.y + 7, 14, YELLOW);
+
+                DrawText(timeStr, itemRec.x + 5, itemRec.y + 7, 14, (i == subtitles.selectedIndex) ? BACKGROUND_COLOR : HIGHLIGHT_COLOR);
                 
                 char displayText[32] = {0};
                 if (sub->text) {
                     strncpy(displayText, sub->text, 20);
                     if (strlen(sub->text) > 20) strcat(displayText, "...");
                 }
-                DrawText(displayText, itemRec.x + 60, itemRec.y + 7, 14, WHITE);
+                DrawText(displayText, itemRec.x + 60, itemRec.y + 7, 14, BACKGROUND_COLOR);
                 
                 if (CheckCollisionPointRec(GetMousePosition(), itemRec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     subtitles.selectedIndex = i;
@@ -740,9 +766,10 @@ int main(int argc, char* argv[]) {
             if (subtitles.selectedIndex >= 0) {
                 int editY = screenH - 200;
                 Rectangle editPanel = { screenW - SIDE_PANEL_WIDTH + 10, editY, SIDE_PANEL_WIDTH - 20, 190 };
-                DrawRectangleRec(editPanel, (Color){45, 45, 45, 255});
+                DrawRectangleRec(editPanel, BACKGROUND_COLOR);
+                DrawRectangleLines(editPanel.x, editPanel.y, editPanel.width, editPanel.height, FOREGROUND_COLOR);
                 
-                DrawText("Start:", editPanel.x + 5, editPanel.y + 5, 14, GRAY);
+                DrawText("Start:", editPanel.x + 5, editPanel.y + 5, 14, FOREGROUND_COLOR);
                 Rectangle startRec = { editPanel.x + 60, editPanel.y + 5, 70, 20 };
                 if (GuiTextBox(startRec, editStartStr, 32, startEditing)) {
                     startEditing = true;
@@ -751,7 +778,7 @@ int main(int argc, char* argv[]) {
                     isTextEditing = true;
                 }
                 
-                DrawText("End:", editPanel.x + 170, editPanel.y + 5, 14, GRAY);
+                DrawText("End:", editPanel.x + 170, editPanel.y + 5, 14, FOREGROUND_COLOR);
                 Rectangle endRec = { editPanel.x + 210, editPanel.y + 5, 70, 20 };
                 if (GuiTextBox(endRec, editEndStr, 32, endEditing)) {
                     endEditing = true;
@@ -780,7 +807,7 @@ int main(int argc, char* argv[]) {
                     isTextEditing = false;
                 }
                 
-                DrawText("Text:", editPanel.x + 5, editPanel.y + 55, 14, GRAY);
+                DrawText("Text:", editPanel.x + 5, editPanel.y + 55, 14, FOREGROUND_COLOR);
                 Rectangle textRec = { editPanel.x + 5, editPanel.y + 75, editPanel.width - 10, 60 };
                 if (GuiTextBox(textRec, editText, 256, textEditing)) {
                     textEditing = true;
