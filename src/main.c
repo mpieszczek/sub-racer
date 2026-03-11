@@ -265,6 +265,7 @@ int main(int argc, char* argv[]) {
     static bool startEditing = false;
     static bool endEditing = false;
     static bool textEditing = false;
+    static bool isTextEditing = false;
     
     while (!WindowShouldClose()) {
         if (IsFileDropped()) {
@@ -302,7 +303,7 @@ int main(int argc, char* argv[]) {
         
         vp_update(vp);
         
-        if (IsKeyPressed(KEY_SPACE) && vp_is_loaded(vp)) {
+        if (IsKeyPressed(KEY_SPACE) && vp_is_loaded(vp) && !isTextEditing) {
             if (vp_is_playing(vp)) {
                 vp_pause(vp);
             } else {
@@ -310,17 +311,17 @@ int main(int argc, char* argv[]) {
             }
         }
         
-        if (IsKeyPressed(KEY_LEFT)) {
+        if (IsKeyPressed(KEY_LEFT) && !isTextEditing) {
             double t = vp_get_time(vp);
             vp_seek(vp, t - 5.0);
         }
         
-        if (IsKeyPressed(KEY_RIGHT)) {
+        if (IsKeyPressed(KEY_RIGHT) && !isTextEditing) {
             double t = vp_get_time(vp);
             vp_seek(vp, t + 5.0);
         }
         
-        if (IsKeyPressed(KEY_F11)) {
+        if (IsKeyPressed(KEY_F11) && !isTextEditing) {
             ToggleFullscreen();
         }
         
@@ -482,6 +483,7 @@ int main(int argc, char* argv[]) {
                     startEditing = true;
                     endEditing = false;
                     textEditing = false;
+                    isTextEditing = true;
                 }
                 
                 DrawText("End:", editPanel.x + 170, editPanel.y + 5, 14, GRAY);
@@ -490,6 +492,7 @@ int main(int argc, char* argv[]) {
                     endEditing = true;
                     startEditing = false;
                     textEditing = false;
+                    isTextEditing = true;
                 }
                 
                 DrawText("Text:", editPanel.x + 5, editPanel.y + 35, 14, GRAY);
@@ -498,6 +501,7 @@ int main(int argc, char* argv[]) {
                     textEditing = true;
                     startEditing = false;
                     endEditing = false;
+                    isTextEditing = true;
                 }
                 
                 if ((startEditing || endEditing || textEditing) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
@@ -507,6 +511,7 @@ int main(int argc, char* argv[]) {
                             textEditing = false;
                             startEditing = false;
                             endEditing = false;
+                            isTextEditing = false;
                     }
                 }
                 
