@@ -14,7 +14,7 @@
 
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 720
-#define SIDE_PANEL_WIDTH 300
+#define SIDE_PANEL_WIDTH 320
 
 #define BACKGROUND_COLOR      CLITERAL(Color){ 15, 56, 15, 255 }
 #define BACKGROUND_COLOR_HEX  0x0f380fff
@@ -41,9 +41,30 @@ static void format_srt_time(double seconds, char* output) {
     snprintf(output, 16, "%02d:%02d:%02d,%03d", hours, minutes, secs, millis);
 }
 
+static void format_display_time(double seconds, char* output) {
+    int hours = (int)(seconds / 3600);
+    int minutes = (int)((seconds - hours * 3600) / 60);
+    int secs = (int)(seconds - hours * 3600 - minutes * 60);
+    int millis = (int)((seconds - (int)seconds) * 1000);
+    snprintf(output, 16, "%02d:%02d:%02d.%03d", hours, minutes, secs, millis);
+}
+
+static void format_display_time_short(double seconds, char* output) {
+    int hours = (int)(seconds / 3600);
+    int minutes = (int)((seconds - hours * 3600) / 60);
+    int secs = (int)(seconds - hours * 3600 - minutes * 60);
+    snprintf(output, 16, "%02d:%02d:%02d", hours, minutes, secs);
+}
+
 static double parse_srt_time(const char* timeStr) {
     int hours = 0, minutes = 0, seconds = 0, millis = 0;
     sscanf(timeStr, "%d:%d:%d,%d", &hours, &minutes, &seconds, &millis);
+    return hours * 3600.0 + minutes * 60.0 + seconds + millis / 1000.0;
+}
+
+static double parse_display_time(const char* timeStr) {
+    int hours = 0, minutes = 0, seconds = 0, millis = 0;
+    sscanf(timeStr, "%d:%d:%d.%d", &hours, &minutes, &seconds, &millis);
     return hours * 3600.0 + minutes * 60.0 + seconds + millis / 1000.0;
 }
 
@@ -691,7 +712,10 @@ int main(int argc, char* argv[]) {
                 }
                 
                 char timeText[64];
-                snprintf(timeText, sizeof(timeText), "%.3f / %.3f", time, dur);
+                char startTimeStr[32], endTimeStr[32];
+                format_display_time(time, startTimeStr);
+                format_display_time(dur, endTimeStr);
+                snprintf(timeText, sizeof(timeText), "%s / %s", startTimeStr, endTimeStr);
                 DrawText(timeText, 10, panelY + 40, 20, HIGHLIGHT_COLOR);
                 
                 Rectangle exportBtn = { videoW - 100, panelY + 40, 90, 20 };
@@ -724,8 +748,8 @@ int main(int argc, char* argv[]) {
                 Subtitle* sub = sublist_get(&subtitles, subtitles.selectedIndex);
                 if (sub) {
                     strncpy(editText, sub->text, sizeof(editText) - 1);
-                    snprintf(editStartStr, sizeof(editStartStr), "%.3f", sub->startTime);
-                    snprintf(editEndStr, sizeof(editEndStr), "%.3f", sub->endTime);
+                    format_display_time(sub->startTime, editStartStr);
+                    format_display_time(sub->endTime, editEndStr);
                 }
                 save_working_srt(&subtitles);
                 vp_refresh_subtitles(vp, project_get_working_srt_path());
@@ -768,9 +792,7 @@ int main(int argc, char* argv[]) {
                 DrawRectangleRec(itemRec, itemBg);
                 
                 char timeStr[32];
-                int startMin = (int)(sub->startTime / 60);
-                int startSec = (int)((int)sub->startTime % 60);
-                snprintf(timeStr, sizeof(timeStr), "%02d:%02d", startMin, startSec);
+                format_display_time_short(sub->startTime, timeStr);
 
                 DrawText(timeStr, itemRec.x + 5, itemRec.y + 7, 14, (i == subtitles.selectedIndex) ? BACKGROUND_COLOR : HIGHLIGHT_COLOR);
                 
@@ -785,8 +807,8 @@ int main(int argc, char* argv[]) {
                     subtitles.selectedIndex = i;
                     vp_seek(vp, sub->startTime);
                     strncpy(editText, sub->text ? sub->text : "", sizeof(editText) - 1);
-                    snprintf(editStartStr, sizeof(editStartStr), "%.3f", sub->startTime);
-                    snprintf(editEndStr, sizeof(editEndStr), "%.3f", sub->endTime);
+                    format_display_time(sub->startTime, editStartStr);
+                    format_display_time(sub->endTime, editEndStr);
                 }
             }
             
@@ -797,7 +819,7 @@ int main(int argc, char* argv[]) {
                 DrawRectangleLines(editPanel.x, editPanel.y, editPanel.width, editPanel.height, FOREGROUND_COLOR);
                 
                 DrawText("Start:", editPanel.x + 5, editPanel.y + 5, 14, FOREGROUND_COLOR);
-                Rectangle startRec = { editPanel.x + 60, editPanel.y + 5, 70, 20 };
+                Rectangle startRec = { editPanel.x + 60, editPanel.y + 5, 85, 20 };
                 if (GuiTextBox(startRec, editStartStr, 32, startEditing)) {
                     startEditing = true;
                     endEditing = false;
@@ -806,7 +828,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 DrawText("End:", editPanel.x + 170, editPanel.y + 5, 14, FOREGROUND_COLOR);
-                Rectangle endRec = { editPanel.x + 210, editPanel.y + 5, 70, 20 };
+                Rectangle endRec = { editPanel.x + 210, editPanel.y + 5, 85, 20 };
                 if (GuiTextBox(endRec, editEndStr, 32, endEditing)) {
                     endEditing = true;
                     startEditing = false;
@@ -814,20 +836,20 @@ int main(int argc, char* argv[]) {
                     isTextEditing = true;
                 }
                 
-                Rectangle startSetBtn = { editPanel.x + 60, editPanel.y + 28, 70, 15 };
+                Rectangle startSetBtn = { editPanel.x + 60, editPanel.y + 28, 85, 15 };
                 if (GuiButton(startSetBtn, "+")) {
                     double currentTime = vp_get_time(vp);
-                    snprintf(editStartStr, sizeof(editStartStr), "%.3f", currentTime);
+                    format_display_time(currentTime, editStartStr);
                     startEditing = false;
                     endEditing = false;
                     textEditing = false;
                     isTextEditing = false;
                 }
                 
-                Rectangle endSetBtn = { editPanel.x + 210, editPanel.y + 28, 70, 15 };
+                Rectangle endSetBtn = { editPanel.x + 210, editPanel.y + 28, 85, 15 };
                 if (GuiButton(endSetBtn, "+")) {
                     double currentTime = vp_get_time(vp);
-                    snprintf(editEndStr, sizeof(editEndStr), "%.3f", currentTime);
+                    format_display_time(currentTime, editEndStr);
                     startEditing = false;
                     endEditing = false;
                     textEditing = false;
@@ -861,8 +883,8 @@ int main(int argc, char* argv[]) {
                         free(sub->text);
                         sub->text = malloc(strlen(editText) + 1);
                         strcpy(sub->text, editText);
-                        sub->startTime = atof(editStartStr);
-                        sub->endTime = atof(editEndStr);
+                        sub->startTime = parse_display_time(editStartStr);
+                        sub->endTime = parse_display_time(editEndStr);
                     }
                     sort_subtitles(&subtitles);
                     save_working_srt(&subtitles);
