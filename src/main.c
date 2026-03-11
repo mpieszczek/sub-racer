@@ -414,7 +414,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 char timeText[64];
-                snprintf(timeText, sizeof(timeText), "%.1f / %.1f", time, dur);
+                snprintf(timeText, sizeof(timeText), "%.3f / %.3f", time, dur);
                 DrawText(timeText, 10, panelY + 40, 20, WHITE);
                 
                 Rectangle exportBtn = { videoW - 100, panelY + 40, 90, 20 };
@@ -445,8 +445,8 @@ int main(int argc, char* argv[]) {
                 Subtitle* sub = sublist_get(&subtitles, subtitles.selectedIndex);
                 if (sub) {
                     strncpy(editText, sub->text, sizeof(editText) - 1);
-                    snprintf(editStartStr, sizeof(editStartStr), "%.1f", sub->startTime);
-                    snprintf(editEndStr, sizeof(editEndStr), "%.1f", sub->endTime);
+                    snprintf(editStartStr, sizeof(editStartStr), "%.3f", sub->startTime);
+                    snprintf(editEndStr, sizeof(editEndStr), "%.3f", sub->endTime);
                 }
                 save_working_srt(&subtitles);
                 vp_refresh_subtitles(vp, workingSrtPath);
@@ -480,8 +480,8 @@ int main(int argc, char* argv[]) {
                     subtitles.selectedIndex = i;
                     vp_seek(vp, sub->startTime);
                     strncpy(editText, sub->text ? sub->text : "", sizeof(editText) - 1);
-                    snprintf(editStartStr, sizeof(editStartStr), "%.1f", sub->startTime);
-                    snprintf(editEndStr, sizeof(editEndStr), "%.1f", sub->endTime);
+                    snprintf(editStartStr, sizeof(editStartStr), "%.3f", sub->startTime);
+                    snprintf(editEndStr, sizeof(editEndStr), "%.3f", sub->endTime);
                 }
             }
             
@@ -511,7 +511,7 @@ int main(int argc, char* argv[]) {
                 Rectangle startSetBtn = { editPanel.x + 60, editPanel.y + 28, 70, 15 };
                 if (GuiButton(startSetBtn, ".")) {
                     double currentTime = vp_get_time(vp);
-                    snprintf(editStartStr, sizeof(editStartStr), "%.1f", currentTime);
+                    snprintf(editStartStr, sizeof(editStartStr), "%.3f", currentTime);
                     startEditing = false;
                     endEditing = false;
                     textEditing = false;
@@ -521,7 +521,7 @@ int main(int argc, char* argv[]) {
                 Rectangle endSetBtn = { editPanel.x + 210, editPanel.y + 28, 70, 15 };
                 if (GuiButton(endSetBtn, ".")) {
                     double currentTime = vp_get_time(vp);
-                    snprintf(editEndStr, sizeof(editEndStr), "%.1f", currentTime);
+                    snprintf(editEndStr, sizeof(editEndStr), "%.3f", currentTime);
                     startEditing = false;
                     endEditing = false;
                     textEditing = false;
