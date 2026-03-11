@@ -376,8 +376,8 @@ int main(int argc, char* argv[]) {
                 }
                 #endif
                 
-                int panelY = (int)(screenH * (1.0f - margin));
-                int panelH = (int)(screenH * margin);
+                int panelY = (int)(screenH - 100);
+                int panelH = 100;
                 
                 DrawRectangle(0, panelY, videoW, panelH, (Color){40, 40, 40, 255});
                 
@@ -424,7 +424,7 @@ int main(int argc, char* argv[]) {
                     showExportMessage = true;
                 }
                 
-                char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: Seek";
+                char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: +/-5s | comma/dot: +/- frame";
                 DrawText(helpText, 10, panelY + 70, 20, YELLOW);
             } else {
                 int screenW = GetScreenWidth();
@@ -513,8 +513,8 @@ int main(int argc, char* argv[]) {
             }
             
             if (subtitles.selectedIndex >= 0) {
-                int editY = screenH - 180;
-                Rectangle editPanel = { screenW - SIDE_PANEL_WIDTH + 10, editY, SIDE_PANEL_WIDTH - 20, 170 };
+                int editY = screenH - 200;
+                Rectangle editPanel = { screenW - SIDE_PANEL_WIDTH + 10, editY, SIDE_PANEL_WIDTH - 20, 190 };
                 DrawRectangleRec(editPanel, (Color){45, 45, 45, 255});
                 
                 DrawText("Start:", editPanel.x + 5, editPanel.y + 5, 14, GRAY);
@@ -536,7 +536,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 Rectangle startSetBtn = { editPanel.x + 60, editPanel.y + 28, 70, 15 };
-                if (GuiButton(startSetBtn, ".")) {
+                if (GuiButton(startSetBtn, "+")) {
                     double currentTime = vp_get_time(vp);
                     snprintf(editStartStr, sizeof(editStartStr), "%.3f", currentTime);
                     startEditing = false;
@@ -546,7 +546,7 @@ int main(int argc, char* argv[]) {
                 }
                 
                 Rectangle endSetBtn = { editPanel.x + 210, editPanel.y + 28, 70, 15 };
-                if (GuiButton(endSetBtn, ".")) {
+                if (GuiButton(endSetBtn, "+")) {
                     double currentTime = vp_get_time(vp);
                     snprintf(editEndStr, sizeof(editEndStr), "%.3f", currentTime);
                     startEditing = false;
@@ -555,8 +555,8 @@ int main(int argc, char* argv[]) {
                     isTextEditing = false;
                 }
                 
-                DrawText("Text:", editPanel.x + 5, editPanel.y + 35, 14, GRAY);
-                Rectangle textRec = { editPanel.x + 5, editPanel.y + 55, editPanel.width - 10, 60 };
+                DrawText("Text:", editPanel.x + 5, editPanel.y + 55, 14, GRAY);
+                Rectangle textRec = { editPanel.x + 5, editPanel.y + 75, editPanel.width - 10, 60 };
                 if (GuiTextBox(textRec, editText, 256, textEditing)) {
                     textEditing = true;
                     startEditing = false;
@@ -575,7 +575,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 
-                Rectangle saveBtn = { editPanel.x + 5, editPanel.y + 125, 80, 25 };
+                Rectangle saveBtn = { editPanel.x + 5, editPanel.y + 145, 80, 25 };
                 if (GuiButton(saveBtn, "Save")) {
                     Subtitle* sub = sublist_get(&subtitles, subtitles.selectedIndex);
                     if (sub) {
@@ -590,8 +590,8 @@ int main(int argc, char* argv[]) {
                     vp_refresh_subtitles(vp, workingSrtPath);
                 }
                 
-                Rectangle delBtn = { editPanel.x + editPanel.width - 45, editPanel.y + 125, 40, 20 };
-                if (GuiButton(delBtn, "DEL")) {
+                Rectangle delBtn = { editPanel.x + editPanel.width - 90, editPanel.y + 145, 80, 25 };
+                if (GuiButton(delBtn, "Delete")) {
                     sublist_remove(&subtitles, subtitles.selectedIndex);
                     subtitles.selectedIndex = -1;
                     save_working_srt(&subtitles);
