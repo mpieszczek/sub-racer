@@ -249,7 +249,20 @@ int main(int argc, char* argv[]) {
     
     SetTargetFPS(60);
     
+    Texture2D logoTexture = { 0 };
+    bool logoLoaded = false;
+    
     project_init();
+    
+    const char* exeDir = project_get_exe_dir();
+    char logoPath[512];
+    snprintf(logoPath, sizeof(logoPath), "%s/resources/logo.png", exeDir);
+    Image logoImg = LoadImage(logoPath);
+    if (logoImg.data != NULL) {
+        logoTexture = LoadTextureFromImage(logoImg);
+        UnloadImage(logoImg);
+        logoLoaded = true;
+    }
     
     VideoPlayer* vp = vp_create();
     if (!vp) {
@@ -329,6 +342,15 @@ int main(int argc, char* argv[]) {
             int screenH = GetScreenHeight();
             int cx = screenW / 2;
             int cy = screenH / 2;
+            
+            if (logoLoaded) {
+                float scale = 0.5f;
+                float logoW = logoTexture.width * scale;
+                float logoH = logoTexture.height * scale;
+                Rectangle src = { 0, 0, (float)logoTexture.width, (float)logoTexture.height };
+                Rectangle dst = { cx - logoW*5, cy - 120 - logoH*7, logoW*10, logoH*10 };
+                DrawTexturePro(logoTexture, src, dst, (Vector2){0, 0}, 0.0f, WHITE);
+            }
             
             DrawText("Drag and drop a video file here", cx - 160, cy - 60, 20, FOREGROUND_COLOR);
             DrawText("or run: sub-racer.exe <video.mp4>", cx - 170, cy - 30, 20, FOREGROUND_COLOR);
@@ -886,6 +908,7 @@ int main(int argc, char* argv[]) {
     
     vp_destroy(vp);
     sublist_free(&subtitles);
+    if (logoLoaded) UnloadTexture(logoTexture);
     CloseWindow();
     
     return 0;
