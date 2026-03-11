@@ -490,7 +490,7 @@ int main(int argc, char* argv[]) {
                 DrawRectangleRec(editPanel, (Color){45, 45, 45, 255});
                 
                 DrawText("Start:", editPanel.x + 5, editPanel.y + 5, 14, GRAY);
-                Rectangle startRec = { editPanel.x + 60, editPanel.y + 5, 100, 20 };
+                Rectangle startRec = { editPanel.x + 60, editPanel.y + 5, 70, 20 };
                 if (GuiTextBox(startRec, editStartStr, 32, startEditing)) {
                     startEditing = true;
                     endEditing = false;
@@ -505,6 +505,26 @@ int main(int argc, char* argv[]) {
                     startEditing = false;
                     textEditing = false;
                     isTextEditing = true;
+                }
+                
+                Rectangle startSetBtn = { editPanel.x + 60, editPanel.y + 28, 70, 15 };
+                if (GuiButton(startSetBtn, ".")) {
+                    double currentTime = vp_get_time(vp);
+                    snprintf(editStartStr, sizeof(editStartStr), "%.1f", currentTime);
+                    startEditing = false;
+                    endEditing = false;
+                    textEditing = false;
+                    isTextEditing = false;
+                }
+                
+                Rectangle endSetBtn = { editPanel.x + 210, editPanel.y + 28, 70, 15 };
+                if (GuiButton(endSetBtn, ".")) {
+                    double currentTime = vp_get_time(vp);
+                    snprintf(editEndStr, sizeof(editEndStr), "%.1f", currentTime);
+                    startEditing = false;
+                    endEditing = false;
+                    textEditing = false;
+                    isTextEditing = false;
                 }
                 
                 DrawText("Text:", editPanel.x + 5, editPanel.y + 35, 14, GRAY);
