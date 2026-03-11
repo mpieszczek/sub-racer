@@ -262,6 +262,11 @@ int main(int argc, char* argv[]) {
         logoTexture = LoadTextureFromImage(logoImg);
         UnloadImage(logoImg);
         logoLoaded = true;
+        
+        Image icon = LoadImage(logoPath);
+        if (icon.data != NULL) {
+            SetWindowIcon(icon);
+        }
     }
     
     VideoPlayer* vp = vp_create();
