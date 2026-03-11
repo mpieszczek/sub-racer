@@ -381,10 +381,10 @@ int main(int argc, char* argv[]) {
             DrawText("Drag and drop a video file here", cx - 160, cy - 60, 20, FOREGROUND_COLOR);
             DrawText("or run: sub-racer.exe <video.mp4>", cx - 170, cy - 30, 20, FOREGROUND_COLOR);
             
-            Rectangle openBtn = { cx - 40, cy + 20, 80, 30 };
-            if (GuiButton(openBtn, "Open")) {
-                projectList = project_list(&projectListCount);
+            if (projectList) {
+                project_list_free(projectList, projectListCount);
             }
+            projectList = project_list(&projectListCount);
             
             if (projectList && projectListCount > 0) {
                 int listY = cy + 70;
