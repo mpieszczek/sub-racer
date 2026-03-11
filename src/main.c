@@ -7,6 +7,7 @@
 #include "raygui.h"
 #include "video_player.h"
 #include "subtitle.h"
+#include "project.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -19,7 +20,11 @@ static char currentVideoPath[512] = { 0 };
 static bool showExportMessage = false;
 static char exportMessage[256] = { 0 };
 static bool exportSuccess = false;
-static char workingSrtPath[512] = "./sub_racer_working.srt";
+static bool showProjectPanel = false;
+static bool showNewProjectDialog = false;
+static char newProjectName[256] = { 0 };
+static int projectListCount = 0;
+static char** projectList = NULL;
 
 static void format_srt_time(double seconds, char* output) {
     int hours = (int)(seconds / 3600);
@@ -126,7 +131,10 @@ static bool load_srt_to_subtitle_list(SubtitleList* list, const char* srtPath) {
 static bool save_working_srt(SubtitleList* list) {
     if (!list) return false;
     
-    FILE* f = fopen(workingSrtPath, "w");
+    const char* srtPath = project_get_working_srt_path();
+    if (!srtPath) return false;
+    
+    FILE* f = fopen(srtPath, "w");
     if (!f) {
         return false;
     }
@@ -219,6 +227,8 @@ int main(int argc, char* argv[]) {
     
     SetTargetFPS(60);
     
+    project_init();
+    
     VideoPlayer* vp = vp_create();
     if (!vp) {
         printf("Failed to create video player\n");
@@ -239,6 +249,18 @@ int main(int argc, char* argv[]) {
     }
     
     if (videoFile && has_video_extension(videoFile)) {
+        const char* filename = strrchr(videoFile, '/');
+        if (!filename) filename = strrchr(videoFile, '\\');
+        if (!filename) filename = videoFile;
+        else filename++;
+        
+        char projectName[256] = {0};
+        strncpy(projectName, filename, sizeof(projectName) - 1);
+        char* dot = strrchr(projectName, '.');
+        if (dot) *dot = '\0';
+        
+        project_create(projectName, videoFile);
+        
         printf("Loading video: %s\n", videoFile);
         if (!vp_load(vp, videoFile)) {
             printf("Failed to load video: %s\n", videoFile);
@@ -249,15 +271,21 @@ int main(int argc, char* argv[]) {
             strncpy(currentVideoPath, videoFile, sizeof(currentVideoPath) - 1);
             currentVideoPath[sizeof(currentVideoPath) - 1] = '\0';
             
-            char srtPath[512];
-            if (get_srt_path(videoFile, srtPath, sizeof(srtPath))) {
-                printf("Loading SRT: %s\n", srtPath);
-                sublist_clear(&subtitles);
-                load_srt_to_subtitle_list(&subtitles, srtPath);
+            const char* srtPath = project_get_working_srt_path();
+            if (srtPath) {
+                FILE* testF = fopen(srtPath, "r");
+                if (testF) {
+                    fclose(testF);
+                    sublist_clear(&subtitles);
+                    load_srt_to_subtitle_list(&subtitles, srtPath);
+                }
                 save_working_srt(&subtitles);
-                vp_refresh_subtitles(vp, workingSrtPath);
+                vp_refresh_subtitles(vp, project_get_working_srt_path());
             }
         }
+    } else {
+        // Bez argumentu - pokaż panel wyboru projektów
+        showProjectPanel = true;
     }
     
     static float lastSliderValue = 0;
@@ -270,12 +298,182 @@ int main(int argc, char* argv[]) {
     static int subtitleListScroll = 0;
     
     while (!WindowShouldClose()) {
+        if (showProjectPanel) {
+            BeginDrawing();
+            ClearBackground(BLACK);
+            
+            int screenW = GetScreenWidth();
+            int screenH = GetScreenHeight();
+            int cx = screenW / 2;
+            int cy = screenH / 2;
+            
+            DrawText("Drag and drop a video file here", cx - 160, cy - 60, 20, GRAY);
+            DrawText("or run: sub-racer.exe <video.mp4>", cx - 170, cy - 30, 20, GRAY);
+            
+            Rectangle openBtn = { cx - 40, cy + 20, 80, 30 };
+            if (GuiButton(openBtn, "Open")) {
+                projectList = project_list(&projectListCount);
+            }
+            
+            if (projectList && projectListCount > 0) {
+                DrawText("Projects:", cx - 200, cy + 70, 20, WHITE);
+                for (int i = 0; i < projectListCount && i < 8; i++) {
+                    Rectangle projRec = { cx - 200, cy + 100 + i * 30, 400, 25 };
+                    DrawRectangleRec(projRec, (Color){60, 60, 60, 255});
+                    DrawText(projectList[i], projRec.x + 5, projRec.y + 5, 16, WHITE);
+                    
+                    if (CheckCollisionPointRec(GetMousePosition(), projRec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
+                        if (project_load(projectList[i])) {
+                            if (vp_load(vp, project_get_video_path())) {
+                                vp_play(vp);
+                                strncpy(currentVideoPath, project_get_video_path(), sizeof(currentVideoPath) - 1);
+                                showProjectPanel = false;
+                                
+                                const char* srtPath = project_get_working_srt_path();
+                                if (srtPath) {
+                                    FILE* testF = fopen(srtPath, "r");
+                                    if (testF) {
+                                        fclose(testF);
+                                        sublist_clear(&subtitles);
+                                        load_srt_to_subtitle_list(&subtitles, srtPath);
+                                    }
+                                    save_working_srt(&subtitles);
+                                    vp_refresh_subtitles(vp, project_get_working_srt_path());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if (IsFileDropped()) {
+                FilePathList droppedFiles = LoadDroppedFiles();
+                if (droppedFiles.count > 0) {
+                    for (unsigned int i = 0; i < droppedFiles.count; i++) {
+                        const char* file = droppedFiles.paths[i];
+                        if (has_video_extension(file)) {
+                            const char* filename = strrchr(file, '/');
+                            if (!filename) filename = strrchr(file, '\\');
+                            if (!filename) filename = file;
+                            else filename++;
+                            
+                            char projectName[256] = {0};
+                            strncpy(projectName, filename, sizeof(projectName) - 1);
+                            char* dot = strrchr(projectName, '.');
+                            if (dot) *dot = '\0';
+                            
+                            project_create(projectName, file);
+                            
+                            printf("Loading dropped video: %s\n", file);
+                            if (vp_load(vp, file)) {
+                                vp_play(vp);
+                                strncpy(currentVideoPath, file, sizeof(currentVideoPath) - 1);
+                                currentVideoPath[sizeof(currentVideoPath) - 1] = '\0';
+                                showProjectPanel = false;
+                                
+                                const char* srtPath = project_get_working_srt_path();
+                                if (srtPath) {
+                                    save_working_srt(&subtitles);
+                                    vp_refresh_subtitles(vp, project_get_working_srt_path());
+                                }
+                                
+                                printf("Video loaded successfully\n");
+                            } else {
+                                printf("Failed to load dropped video\n");
+                            }
+                            break;
+                        }
+                    }
+                }
+                UnloadDroppedFiles(droppedFiles);
+            }
+            
+            EndDrawing();
+            continue;
+        }
+        
+        if (showNewProjectDialog) {
+            BeginDrawing();
+            ClearBackground((Color){0, 0, 0, 100});
+            
+            int screenW = GetScreenWidth();
+            int screenH = GetScreenHeight();
+            
+            DrawRectangle((screenW - 400) / 2, (screenH - 200) / 2, 400, 200, (Color){50, 50, 50, 255});
+            DrawText("Enter project name:", (screenW - 400) / 2 + 20, (screenH - 200) / 2 + 20, 20, WHITE);
+            
+            Rectangle nameRec = { (screenW - 350) / 2, (screenH - 200) / 2 + 50, 300, 25 };
+            GuiTextBox(nameRec, newProjectName, 64, true);
+            
+            Rectangle createBtn = { (screenW - 150) / 2, (screenH - 200) / 2 + 100, 100, 30 };
+            if (GuiButton(createBtn, "Drag video")) {
+                showNewProjectDialog = false;
+            }
+            
+            Rectangle cancelBtn = { (screenW + 50) / 2, (screenH - 200) / 2 + 100, 80, 30 };
+            if (GuiButton(cancelBtn, "Cancel")) {
+                showNewProjectDialog = false;
+                newProjectName[0] = '\0';
+            }
+            
+            EndDrawing();
+            
+            if (IsFileDropped()) {
+                FilePathList droppedFiles = LoadDroppedFiles();
+                if (droppedFiles.count > 0) {
+                    for (unsigned int i = 0; i < droppedFiles.count; i++) {
+                        const char* file = droppedFiles.paths[i];
+                        if (has_video_extension(file)) {
+                            if (newProjectName[0] == '\0') {
+                                const char* filename = strrchr(file, '/');
+                                if (!filename) filename = strrchr(file, '\\');
+                                if (!filename) filename = file;
+                                else filename++;
+                                strncpy(newProjectName, filename, sizeof(newProjectName) - 1);
+                                char* dot = strrchr(newProjectName, '.');
+                                if (dot) *dot = '\0';
+                            }
+                            
+                            project_create(newProjectName, file);
+                            
+                            if (vp_load(vp, file)) {
+                                vp_play(vp);
+                                strncpy(currentVideoPath, file, sizeof(currentVideoPath) - 1);
+                                showProjectPanel = false;
+                                showNewProjectDialog = false;
+                                newProjectName[0] = '\0';
+                                
+                                save_working_srt(&subtitles);
+                                vp_refresh_subtitles(vp, project_get_working_srt_path());
+                            }
+                            break;
+                        }
+                    }
+                }
+                UnloadDroppedFiles(droppedFiles);
+            }
+            
+            continue;
+        }
+        
         if (IsFileDropped()) {
             FilePathList droppedFiles = LoadDroppedFiles();
             if (droppedFiles.count > 0) {
                 for (unsigned int i = 0; i < droppedFiles.count; i++) {
                     const char* file = droppedFiles.paths[i];
                     if (has_video_extension(file)) {
+                        const char* filename = strrchr(file, '/');
+                        if (!filename) filename = strrchr(file, '\\');
+                        if (!filename) filename = file;
+                        else filename++;
+                        
+                        char projectName[256] = {0};
+                        strncpy(projectName, filename, sizeof(projectName) - 1);
+                        char* dot = strrchr(projectName, '.');
+                        if (dot) *dot = '\0';
+                        
+                        project_create(projectName, file);
+                        
                         printf("Loading dropped video: %s\n", file);
                         if (vp_load(vp, file)) {
                             videoFile = file;
@@ -283,13 +481,10 @@ int main(int argc, char* argv[]) {
                             strncpy(currentVideoPath, file, sizeof(currentVideoPath) - 1);
                             currentVideoPath[sizeof(currentVideoPath) - 1] = '\0';
                             
-                            char srtPath[512];
-                            if (get_srt_path(file, srtPath, sizeof(srtPath))) {
-                                printf("Loading SRT: %s\n", srtPath);
-                                sublist_clear(&subtitles);
-                                load_srt_to_subtitle_list(&subtitles, srtPath);
+                            const char* srtPath = project_get_working_srt_path();
+                            if (srtPath) {
                                 save_working_srt(&subtitles);
-                                vp_refresh_subtitles(vp, workingSrtPath);
+                                vp_refresh_subtitles(vp, project_get_working_srt_path());
                             }
                             
                             printf("Video loaded successfully\n");
@@ -450,7 +645,7 @@ int main(int argc, char* argv[]) {
                     snprintf(editEndStr, sizeof(editEndStr), "%.3f", sub->endTime);
                 }
                 save_working_srt(&subtitles);
-                vp_refresh_subtitles(vp, workingSrtPath);
+                vp_refresh_subtitles(vp, project_get_working_srt_path());
             }
             
             int listY = 50;
@@ -587,7 +782,7 @@ int main(int argc, char* argv[]) {
                     }
                     sort_subtitles(&subtitles);
                     save_working_srt(&subtitles);
-                    vp_refresh_subtitles(vp, workingSrtPath);
+                    vp_refresh_subtitles(vp, project_get_working_srt_path());
                 }
                 
                 Rectangle delBtn = { editPanel.x + editPanel.width - 90, editPanel.y + 145, 80, 25 };
@@ -595,7 +790,7 @@ int main(int argc, char* argv[]) {
                     sublist_remove(&subtitles, subtitles.selectedIndex);
                     subtitles.selectedIndex = -1;
                     save_working_srt(&subtitles);
-                    vp_refresh_subtitles(vp, workingSrtPath);
+                    vp_refresh_subtitles(vp, project_get_working_srt_path());
                 }
             }
         } else {
