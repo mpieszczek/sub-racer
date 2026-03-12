@@ -587,6 +587,10 @@ int main(int argc, char* argv[]) {
         }
         
         if (IsKeyPressed(KEY_F11) && !isTextEditing) {
+            if (!IsWindowFullscreen()) {
+                int monitor = GetCurrentMonitor();
+                SetWindowSize(GetMonitorWidth(monitor), GetMonitorHeight(monitor));
+            }
             ToggleFullscreen();
         }
         
