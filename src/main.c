@@ -32,6 +32,9 @@ static bool showProjectPanel = false;
 static char newProjectName[256] = { 0 };
 static int projectListCount = 0;
 static char** projectList = NULL;
+static Font appFont = { 0 };
+
+static int fontSize=20;
 
 static void format_srt_time(double seconds, char* output) {
     int hours = (int)(seconds / 3600);
@@ -251,7 +254,7 @@ int main(int argc, char* argv[]) {
     SetWindowState(FLAG_WINDOW_RESIZABLE);
     
     GuiLoadStyleDefault();
-    GuiSetStyle(DEFAULT, TEXT_SIZE, 15);
+    GuiSetStyle(DEFAULT, TEXT_SIZE, fontSize);
     GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, FOREGROUND_COLOR_HEX);
     GuiSetStyle(DEFAULT, BASE_COLOR_NORMAL, BACKGROUND_COLOR_HEX);
     GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, HIGHLIGHT_COLOR_HEX);
@@ -276,6 +279,16 @@ int main(int argc, char* argv[]) {
     project_init();
     
     const char* exeDir = project_get_exe_dir();
+    char fontPath[512];
+    snprintf(fontPath, sizeof(fontPath), "%s/resources/Jersey_10/Jersey10-Regular.ttf", exeDir);
+    appFont = LoadFontEx(fontPath, fontSize, NULL, 65535);
+    if (appFont.texture.id == 0) {
+        printf("[Font] Failed to load Jersey 10, using default\n");
+    } else {
+        printf("[Font] Loaded Jersey 10 successfully\n");
+        GuiSetFont(appFont);
+    }
+    
     char logoPath[512];
     snprintf(logoPath, sizeof(logoPath), "%s/resources/logo.png", exeDir);
     Image logoImg = LoadImage(logoPath);
@@ -378,8 +391,8 @@ int main(int argc, char* argv[]) {
                 DrawTexturePro(logoTexture, src, dst, (Vector2){0, 0}, 0.0f, WHITE);
             }
             
-            DrawText("Drag and drop a video file here", cx - 160, cy - 60, 20, FOREGROUND_COLOR);
-            DrawText("or run: sub-racer.exe <video.mp4>", cx - 170, cy - 30, 20, FOREGROUND_COLOR);
+            DrawTextEx(appFont, "Drag and drop a video file here", (Vector2){ cx - 160, cy - 60 }, fontSize, 2, FOREGROUND_COLOR);
+            DrawTextEx(appFont, "or run: sub-racer.exe <video.mp4>", (Vector2){ cx - 170, cy - 30 }, fontSize, 2, FOREGROUND_COLOR);
             
             if (projectList) {
                 project_list_free(projectList, projectListCount);
@@ -408,13 +421,13 @@ int main(int argc, char* argv[]) {
                     projectListScroll = projectListCount - visibleItems;
                 }
                 
-                DrawText("Projects:", cx - 200, listY - 20, 20, HIGHLIGHT_COLOR);
+                DrawTextEx(appFont, "Projects:", (Vector2){ cx - 200, listY - 20 }, fontSize, 2, HIGHLIGHT_COLOR);
                 for (int i = projectListScroll; i < projectListCount && i < projectListScroll + visibleItems; i++) {
                     Rectangle projRec = { cx - 200, listY + (i - projectListScroll) * itemHeight, 400, 25 };
                     bool isHovered = CheckCollisionPointRec(GetMousePosition(), projRec);
                     DrawRectangleRec(projRec, FOREGROUND_COLOR);
                     if(isHovered) DrawRectangleLinesEx(projRec, 1, HIGHLIGHT_COLOR);
-                    DrawText(projectList[i], projRec.x + 5, projRec.y + 5, 16, HIGHLIGHT_COLOR);
+                    DrawTextEx(appFont, projectList[i], (Vector2){ projRec.x + 5, projRec.y + 5 }, fontSize, 2, HIGHLIGHT_COLOR);
                     
                     if (CheckCollisionPointRec(GetMousePosition(), projRec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                         if (project_load(projectList[i])) {
@@ -600,7 +613,7 @@ int main(int argc, char* argv[]) {
                 #ifdef USE_RAYLIB_TEXT
                 Subtitle* currentSub = sublist_get_at_time(&subtitles, vp_get_time(vp));
                 if (currentSub && currentSub->text && currentSub->text[0] != '\0') {
-                    Font font = GetFontDefault();
+                    Font font = (appFont.texture.id != 0) ? appFont : GetFontDefault();
                     int fontSize = 24;
                     Vector2 textSize = MeasureTextEx(font, currentSub->text, fontSize, 2);
                     float textX = videoW / 2 - textSize.x / 2;
@@ -675,7 +688,7 @@ int main(int argc, char* argv[]) {
                 format_display_time(time, startTimeStr);
                 format_display_time(dur, endTimeStr);
                 snprintf(timeText, sizeof(timeText), "%s / %s", startTimeStr, endTimeStr);
-                DrawText(timeText, 10, panelY + 40, 20, HIGHLIGHT_COLOR);
+                DrawTextEx(appFont, timeText, (Vector2){ 10, panelY + 40 }, fontSize, 2, HIGHLIGHT_COLOR);
                 
                 Rectangle exportBtn = { videoW - 100, panelY + 40, 90, 20 };
                 if (GuiButton(exportBtn, "Export")) {
@@ -695,11 +708,11 @@ int main(int argc, char* argv[]) {
                 }
                 
                 char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: +/-5s | comma/dot: +/- frame";
-                DrawText(helpText, 10, panelY + 70, 20, FOREGROUND_COLOR);
+                DrawTextEx(appFont, helpText, (Vector2){ 10, panelY + 70 }, fontSize, 2, FOREGROUND_COLOR);
             } else {
                 int screenW = GetScreenWidth();
                 int screenH = GetScreenHeight();
-                DrawText("Loading video...", (screenW - SIDE_PANEL_WIDTH)/2 - 60, screenH/2, 20, HIGHLIGHT_COLOR);
+                DrawTextEx(appFont, "Loading video...", (Vector2){ (screenW - SIDE_PANEL_WIDTH)/2 - 60, screenH/2 }, fontSize, 2, HIGHLIGHT_COLOR);
             }
             
             DrawRectangle(screenW - SIDE_PANEL_WIDTH, 0, SIDE_PANEL_WIDTH, screenH, BACKGROUND_COLOR);
@@ -764,14 +777,14 @@ int main(int argc, char* argv[]) {
                 char timeStr[32];
                 format_display_time_short(sub->startTime, timeStr);
 
-                DrawText(timeStr, itemRec.x + 5, itemRec.y + 7, 14, (i == subtitles.selectedIndex) ? BACKGROUND_COLOR : HIGHLIGHT_COLOR);
+                DrawTextEx(appFont, timeStr, (Vector2){ itemRec.x + 5, itemRec.y + 7 }, fontSize, 2, (i == subtitles.selectedIndex) ? BACKGROUND_COLOR : HIGHLIGHT_COLOR);
                 
                 char displayText[32] = {0};
                 if (sub->text) {
                     strncpy(displayText, sub->text, 20);
                     if (strlen(sub->text) > 20) strcat(displayText, "...");
                 }
-                DrawText(displayText, itemRec.x + 60, itemRec.y + 7, 14, BACKGROUND_COLOR);
+                DrawTextEx(appFont, displayText, (Vector2){ itemRec.x + 80, itemRec.y + 7 }, fontSize, 2, BACKGROUND_COLOR);
                 
                 if (CheckCollisionPointRec(GetMousePosition(), itemRec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
                     subtitles.selectedIndex = i;
@@ -788,7 +801,7 @@ int main(int argc, char* argv[]) {
                 DrawRectangleRec(editPanel, BACKGROUND_COLOR);
                 DrawRectangleLines(editPanel.x, editPanel.y, editPanel.width, editPanel.height, FOREGROUND_COLOR);
                 
-                DrawText("Start:", editPanel.x + 5, editPanel.y + 5, 14, FOREGROUND_COLOR);
+                DrawTextEx(appFont, "Start:", (Vector2){ editPanel.x + 5, editPanel.y + 5 }, fontSize, 2, FOREGROUND_COLOR);
                 Rectangle startRec = { editPanel.x + 60, editPanel.y + 5, 85, 20 };
                 if (GuiTextBox(startRec, editStartStr, 32, startEditing)) {
                     startEditing = true;
@@ -797,7 +810,7 @@ int main(int argc, char* argv[]) {
                     isTextEditing = true;
                 }
                 
-                DrawText("End:", editPanel.x + 170, editPanel.y + 5, 14, FOREGROUND_COLOR);
+                DrawTextEx(appFont, "End:", (Vector2){ editPanel.x + 170, editPanel.y + 5 }, fontSize, 2, FOREGROUND_COLOR);
                 Rectangle endRec = { editPanel.x + 210, editPanel.y + 5, 85, 20 };
                 if (GuiTextBox(endRec, editEndStr, 32, endEditing)) {
                     endEditing = true;
@@ -826,7 +839,7 @@ int main(int argc, char* argv[]) {
                     isTextEditing = false;
                 }
                 
-                DrawText("Text:", editPanel.x + 5, editPanel.y + 55, 14, FOREGROUND_COLOR);
+                DrawTextEx(appFont, "Text:", (Vector2){ editPanel.x + 5, editPanel.y + 55 }, fontSize, 2, FOREGROUND_COLOR);
                 Rectangle textRec = { editPanel.x + 5, editPanel.y + 75, editPanel.width - 10, 60 };
                 if (GuiTextBox(textRec, editText, 256, textEditing)) {
                     textEditing = true;
@@ -874,8 +887,8 @@ int main(int argc, char* argv[]) {
             int screenH = GetScreenHeight();
             int cx = screenW / 2;
             int cy = screenH / 2;
-            DrawText("Drag and drop a video file here", cx - 160, cy - 20, 20, GRAY);
-            DrawText("or run: sub-racer.exe <video.mp4>", cx - 170, cy + 15, 20, GRAY);
+            DrawTextEx(appFont, "Drag and drop a video file here", (Vector2){ cx - 160, cy - 20 }, fontSize, 2, GRAY);
+            DrawTextEx(appFont, "or run: sub-racer.exe <video.mp4>", (Vector2){ cx - 170, cy + 15 }, fontSize, 2, GRAY);
         }
         
         int screenW = GetScreenWidth();
@@ -932,6 +945,7 @@ int main(int argc, char* argv[]) {
     vp_destroy(vp);
     sublist_free(&subtitles);
     if (logoLoaded) UnloadTexture(logoTexture);
+    if (appFont.texture.id != 0) UnloadFont(appFont);
     CloseWindow();
     
     return 0;
