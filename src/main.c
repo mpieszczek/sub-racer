@@ -8,6 +8,7 @@
 #include "video_player.h"
 #include "subtitle.h"
 #include "project.h"
+#include "time_utils.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -36,41 +37,6 @@ static Font appFont = { 0 };
 
 static int fontSize=20;
 static int spacing = 2;
-
-static void format_srt_time(double seconds, char* output) {
-    int hours = (int)(seconds / 3600);
-    int minutes = (int)((seconds - hours * 3600) / 60);
-    int secs = (int)(seconds - hours * 3600 - minutes * 60);
-    int millis = (int)((seconds - (int)seconds) * 1000);
-    snprintf(output, 16, "%02d:%02d:%02d,%03d", hours, minutes, secs, millis);
-}
-
-static void format_display_time(double seconds, char* output) {
-    int hours = (int)(seconds / 3600);
-    int minutes = (int)((seconds - hours * 3600) / 60);
-    int secs = (int)(seconds - hours * 3600 - minutes * 60);
-    int millis = (int)((seconds - (int)seconds) * 1000);
-    snprintf(output, 16, "%02d:%02d:%02d.%03d", hours, minutes, secs, millis);
-}
-
-static void format_display_time_short(double seconds, char* output) {
-    int hours = (int)(seconds / 3600);
-    int minutes = (int)((seconds - hours * 3600) / 60);
-    int secs = (int)(seconds - hours * 3600 - minutes * 60);
-    snprintf(output, 16, "%02d:%02d:%02d", hours, minutes, secs);
-}
-
-static double parse_srt_time(const char* timeStr) {
-    int hours = 0, minutes = 0, seconds = 0, millis = 0;
-    sscanf(timeStr, "%d:%d:%d,%d", &hours, &minutes, &seconds, &millis);
-    return hours * 3600.0 + minutes * 60.0 + seconds + millis / 1000.0;
-}
-
-static double parse_display_time(const char* timeStr) {
-    int hours = 0, minutes = 0, seconds = 0, millis = 0;
-    sscanf(timeStr, "%d:%d:%d.%d", &hours, &minutes, &seconds, &millis);
-    return hours * 3600.0 + minutes * 60.0 + seconds + millis / 1000.0;
-}
 
 static bool get_srt_path(const char* videoPath, char* srtPathOut, size_t outSize) {
     if (!videoPath || !srtPathOut) return false;
