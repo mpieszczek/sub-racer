@@ -36,7 +36,7 @@ jobs:
 
     - name: Build
       run: |
-        cmake --build build
+        cmake --build build --target sub-racer-tests
 
     - name: Run tests
       run: |
@@ -52,7 +52,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y cmake build-essential libgl1-mesa-dev libmpv-dev
+        sudo apt-get install -y cmake build-essential libgl1-mesa-dev
 
     - name: Configure CMake
       run: |
@@ -60,7 +60,7 @@ jobs:
 
     - name: Build
       run: |
-        cmake --build build
+        cmake --build build --target sub-racer-tests
 
     - name: Run tests
       run: |
@@ -75,7 +75,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        brew install cmake mpv
+        brew install cmake
 
     - name: Configure CMake
       run: |
@@ -83,7 +83,7 @@ jobs:
 
     - name: Build
       run: |
-        cmake --build build
+        cmake --build build --target sub-racer-tests
 
     - name: Run tests
       run: |
