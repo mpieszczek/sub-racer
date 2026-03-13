@@ -40,11 +40,17 @@ set(RAYGUI_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/raygui-src/src)
 target_include_directories(${PROJECT_NAME} PRIVATE ${LIBMPV_INCLUDE_DIR} ${RAYGUI_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} ${LIBMPV_LIBRARY})
 
-# Copy libmpv DLL to output directory
+# Copy libmpv DLL and LICENSE to output directory
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/external/libmpv/libmpv-2.dll
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/libmpv-2.dll
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/external/libmpv/LICENSE.LGPL
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/LICENSE.lgpl
+    COMMAND ${CMAKE_COMMAND} -E copy
+        ${CMAKE_SOURCE_DIR}/LICENSE
+        $<TARGET_FILE_DIR:${PROJECT_NAME}>/LICENSE
 )
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
