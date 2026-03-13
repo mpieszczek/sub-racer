@@ -19,10 +19,6 @@ jobs:
       contents: write
     runs-on: windows-latest
 
-    env:
-      PROJECT_NAME: ${{ github.event.repository.name }}
-      PROJECT_RELEASE_PATH: ${{ env.PROJECT_NAME }}_dev_win_x64
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -44,11 +40,17 @@ jobs:
       run: |
         cmake --build build --config Release
 
-    - name: Setup Release Paths
-      run: |
-        mkdir ${{ env.PROJECT_RELEASE_PATH }}
-      shell: bash
+    - name: Set release path
       if: github.event_name == 'release' && github.event.action == 'published'
+      run: |
+        echo "PROJECT_RELEASE_PATH=${{ github.event.repository.name }}_v${{ github.event.release.tag_name }}_win_x64" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Set release path (non-release)
+      if: github.event_name != 'release'
+      run: |
+        echo "PROJECT_RELEASE_PATH=${{ github.event.repository.name }}_dev_win_x64" >> $GITHUB_ENV
+      shell: bash
 
     - name: Copy Artifacts
       run: |
@@ -58,18 +60,6 @@ jobs:
         cp README.md ${{ env.PROJECT_RELEASE_PATH }}/
         cp LICENSE ${{ env.PROJECT_RELEASE_PATH }}/
       shell: bash
-      if: github.event_name != 'release'
-
-    - name: Copy Artifacts (Release)
-      run: |
-        mkdir -p ${{ env.PROJECT_RELEASE_PATH }}
-        cp build/sub-racer/sub-racer.exe ${{ env.PROJECT_RELEASE_PATH }}/
-        cp -r build/sub-racer/resources ${{ env.PROJECT_RELEASE_PATH }}/
-        cp README.md ${{ env.PROJECT_RELEASE_PATH }}/
-        cp LICENSE ${{ env.PROJECT_RELEASE_PATH }}/
-        echo "PROJECT_RELEASE_PATH=${{ env.PROJECT_NAME }}_v${{ github.event.release.tag_name }}_win_x64" >> $GITHUB_ENV
-      shell: bash
-      if: github.event_name == 'release' && github.event.action == 'published'
 
     - name: Package
       run: |

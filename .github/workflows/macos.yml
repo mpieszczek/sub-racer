@@ -19,10 +19,6 @@ jobs:
       contents: write
     runs-on: macos-latest
 
-    env:
-      PROJECT_NAME: ${{ github.event.repository.name }}
-      PROJECT_RELEASE_PATH: ${{ env.PROJECT_NAME }}_dev_macos
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -39,24 +35,28 @@ jobs:
       run: |
         cmake --build build --config Release
 
-    - name: Setup Release Paths
-      run: |
-        mkdir -p ${{ env.PROJECT_RELEASE_PATH }}/${{ env.PROJECT_NAME }}.app/Contents/MacOS
-        mkdir -p ${{ env.PROJECT_RELEASE_PATH }}/${{ env.PROJECT_NAME }}.app/Contents/Resources
+    - name: Set release path
       if: github.event_name == 'release' && github.event.action == 'published'
+      run: |
+        echo "PROJECT_RELEASE_PATH=${{ github.event.repository.name }}_v${{ github.event.release.tag_name }}_macos" >> $GITHUB_ENV
+
+    - name: Set release path (non-release)
+      if: github.event_name != 'release'
+      run: |
+        echo "PROJECT_RELEASE_PATH=${{ github.event.repository.name }}_dev_macos" >> $GITHUB_ENV
 
     - name: Create .app bundle
       run: |
-        mkdir -p ${{ env.PROJECT_NAME }}.app/Contents/MacOS
-        mkdir -p ${{ env.PROJECT_NAME }}.app/Contents/Resources
-        cp build/sub-racer/sub-racer ${{ env.PROJECT_NAME }}.app/Contents/MacOS/
-        cp -r build/sub-racer/resources ${{ env.PROJECT_NAME }}.app/Contents/
-        cp README.md ${{ env.PROJECT_NAME }}/
-        cp LICENSE ${{ env.PROJECT_NAME }}/
+        mkdir -p ${{ github.event.repository.name }}.app/Contents/MacOS
+        mkdir -p ${{ github.event.repository.name }}.app/Contents/Resources
+        cp build/sub-racer/sub-racer ${{ github.event.repository.name }}.app/Contents/MacOS/
+        cp -r build/sub-racer/resources ${{ github.event.repository.name }}.app/Contents/
+        cp README.md ${{ github.event.repository.name }}/
+        cp LICENSE ${{ github.event.repository.name }}/
 
     - name: Package
       run: |
-        zip -r ${{ env.PROJECT_RELEASE_PATH }}.zip ${{ env.PROJECT_NAME }}.app
+        zip -r ${{ env.PROJECT_RELEASE_PATH }}.zip ${{ github.event.repository.name }}.app
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4

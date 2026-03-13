@@ -19,10 +19,6 @@ jobs:
       contents: write
     runs-on: ubuntu-latest
 
-    env:
-      PROJECT_NAME: ${{ github.event.repository.name }}
-      PROJECT_RELEASE_PATH: ${{ env.PROJECT_NAME }}_dev_linux_x64
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -40,10 +36,15 @@ jobs:
       run: |
         cmake --build build --config Release
 
-    - name: Setup Release Paths
-      run: |
-        mkdir -p ${{ env.PROJECT_RELEASE_PATH }}
+    - name: Set release path
       if: github.event_name == 'release' && github.event.action == 'published'
+      run: |
+        echo "PROJECT_RELEASE_PATH=${{ github.event.repository.name }}_v${{ github.event.release.tag_name }}_linux_x64" >> $GITHUB_ENV
+
+    - name: Set release path (non-release)
+      if: github.event_name != 'release'
+      run: |
+        echo "PROJECT_RELEASE_PATH=${{ github.event.repository.name }}_dev_linux_x64" >> $GITHUB_ENV
 
     - name: Copy Artifacts
       run: |
