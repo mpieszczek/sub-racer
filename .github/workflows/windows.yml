@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'src/**'
+      - 'CMakeLists.txt'
       - '.github/workflows/windows.yml'
   release:
     types: [published]
@@ -15,63 +16,66 @@ permissions:
 jobs:
   build:
     permissions:
-      contents: write       # for actions/upload-release-asset to upload release asset
+      contents: write
     runs-on: windows-latest
 
     env:
       PROJECT_NAME: ${{ github.event.repository.name }}
-      PROJECT_BUILD_PATH: "${{ github.event.repository.name }}\\projects\\VS2022\\build\\${{ github.event.repository.name }}\\bin\\x64\\Release"
-      PROJECT_RELEASE_PATH: ${{ github.event.repository.name }}_dev_win_x64
-      PROJECT_RESOURCES_PATH: resources
+      PROJECT_RELEASE_PATH: ${{ env.PROJECT_NAME }}_dev_win_x64
 
     steps:
-    - name: Checkout this repo
-      uses: actions/checkout@master
-      with:
-        path: ${{ env.PROJECT_NAME }}
-
-    - name: Checkout raylib repo
+    - name: Checkout code
       uses: actions/checkout@v4
-      with:
-        repository: raysan5/raylib
-        path: raylib
 
-    # NOTE: Visual Studio project build configuration already defines all required directories where project is generated:
-    # $(SolutionDir)\build\$(ProjectName)\bin\$(Platform)\$(Configuration)\
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        install: >-
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-gcc
+          mingw-w64-x86_64-libmpv
+
+    - name: Configure CMake
+      run: |
+        cmake -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build
+      run: |
+        cmake --build build --config Release
+
     - name: Setup Release Paths
       run: |
+        mkdir ${{ env.PROJECT_RELEASE_PATH }}
+      shell: bash
+      if: github.event_name == 'release' && github.event.action == 'published'
+
+    - name: Copy Artifacts
+      run: |
+        mkdir -p ${{ env.PROJECT_RELEASE_PATH }}
+        cp build/sub-racer/sub-racer.exe ${{ env.PROJECT_RELEASE_PATH }}/
+        cp -r build/sub-racer/resources ${{ env.PROJECT_RELEASE_PATH }}/
+        cp README.md ${{ env.PROJECT_RELEASE_PATH }}/
+        cp LICENSE ${{ env.PROJECT_RELEASE_PATH }}/
+      shell: bash
+      if: github.event_name != 'release'
+
+    - name: Copy Artifacts (Release)
+      run: |
+        mkdir -p ${{ env.PROJECT_RELEASE_PATH }}
+        cp build/sub-racer/sub-racer.exe ${{ env.PROJECT_RELEASE_PATH }}/
+        cp -r build/sub-racer/resources ${{ env.PROJECT_RELEASE_PATH }}/
+        cp README.md ${{ env.PROJECT_RELEASE_PATH }}/
+        cp LICENSE ${{ env.PROJECT_RELEASE_PATH }}/
         echo "PROJECT_RELEASE_PATH=${{ env.PROJECT_NAME }}_v${{ github.event.release.tag_name }}_win_x64" >> $GITHUB_ENV
       shell: bash
       if: github.event_name == 'release' && github.event.action == 'published'
 
-    - name: Setup Environment
+    - name: Package
       run: |
-        mkdir ${{ env.PROJECT_RELEASE_PATH }}
-        dir
-      shell: cmd
-
-    # Setup MSBuild.exe path if required
-    - name: Setup MSBuild path
-      uses: microsoft/setup-msbuild@v2
-
-    - name: Build raylib Library + Product (VS2022 solution)
-      run: |
-        dir
-        cd ${{ env.PROJECT_NAME }}/projects/VS2022
-        msbuild.exe ${{ env.PROJECT_NAME }}.sln /target:${{ env.PROJECT_NAME }} /property:Configuration=Release /property:Platform=x64 /property:RaylibSrcPath="..\..\..\..\raylib\src"
-        cd ../..
-      shell: cmd
-
-    - name: Generate Artifacts
-      run: |
-        dir ${{ env.PROJECT_BUILD_PATH }}
-        copy /Y ${{ env.PROJECT_BUILD_PATH }}\${{ env.PROJECT_NAME }}.exe ${{ env.PROJECT_RELEASE_PATH }}\${{ env.PROJECT_NAME }}.exe
-        xcopy ${{ env.PROJECT_NAME }}\${{ env.PROJECT_RESOURCES_PATH }} ${{ env.PROJECT_RELEASE_PATH }}\${{ env.PROJECT_RESOURCES_PATH }} /s /e /i
-        copy /Y ${{ env.PROJECT_NAME }}\README.md ${{ env.PROJECT_RELEASE_PATH }}\README.md
-        copy /Y ${{ env.PROJECT_NAME }}\LICENSE ${{ env.PROJECT_RELEASE_PATH }}\LICENSE
-        dir ${{ env.PROJECT_RELEASE_PATH }}
-        7z a .\${{ env.PROJECT_RELEASE_PATH }}.zip .\${{ env.PROJECT_RELEASE_PATH }}
-      shell: cmd
+        cd ${{ env.PROJECT_RELEASE_PATH }}
+        7z a -tzip ../${{ env.PROJECT_RELEASE_PATH }}.zip .
+      shell: bash
 
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4

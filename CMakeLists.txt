@@ -30,9 +30,29 @@ FetchContent_MakeAvailable(raylib raygui)
 add_executable(${PROJECT_NAME})
 add_subdirectory(src)
 
-# libmpv configuration
-set(LIBMPV_INCLUDE_DIR ${CMAKE_SOURCE_DIR}/external/libmpv/include)
-set(LIBMPV_LIBRARY ${CMAKE_SOURCE_DIR}/external/libmpv/libmpv.dll.a)
+# libmpv configuration - try system libmpv first, fall back to local
+set(USE_SYSTEM_LIBMPV OFF)
+
+# Try to find system libmpv (works on Linux, macOS, and CI environments)
+find_package(PkgConfig QUIET)
+pkg_check_modules(libmpv QUIET libmpv)
+if(libmpv_FOUND)
+    message(STATUS "Using system libmpv")
+    set(USE_SYSTEM_LIBMPV ON)
+    set(LIBMPV_INCLUDE_DIR ${libmpv_INCLUDE_DIRS})
+    set(LIBMPV_LIBRARY ${libmpv_LIBRARIES})
+else()
+    # Fallback to local libmpv (for Windows development)
+    set(LOCAL_LIBMPV_INCLUDE "${CMAKE_SOURCE_DIR}/external/libmpv/include")
+    set(LOCAL_LIBMPV_LIB "${CMAKE_SOURCE_DIR}/external/libmpv/libmpv.dll.a")
+    if(EXISTS "${LOCAL_LIBMPV_INCLUDE}" AND EXISTS "${LOCAL_LIBMPV_LIB}")
+        message(STATUS "Using local libmpv from external/")
+        set(LIBMPV_INCLUDE_DIR "${LOCAL_LIBMPV_INCLUDE}")
+        set(LIBMPV_LIBRARY "${LOCAL_LIBMPV_LIB}")
+    else()
+        message(FATAL_ERROR "libmpv not found! Install libmpv-dev (Linux), mpv (macOS), or place libmpv in external/libmpv/")
+    endif()
+endif()
 
 # raygui - use fetched version
 set(RAYGUI_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/raygui-src/src)
@@ -40,14 +60,20 @@ set(RAYGUI_INCLUDE_DIR ${CMAKE_BINARY_DIR}/_deps/raygui-src/src)
 target_include_directories(${PROJECT_NAME} PRIVATE ${LIBMPV_INCLUDE_DIR} ${RAYGUI_INCLUDE_DIR})
 target_link_libraries(${PROJECT_NAME} ${LIBMPV_LIBRARY})
 
-# Copy libmpv DLL and LICENSE to output directory
+# Copy libmpv DLL and LICENSE to output directory (only for local build)
+if(NOT USE_SYSTEM_LIBMPV)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_SOURCE_DIR}/external/libmpv/libmpv-2.dll
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/libmpv-2.dll
+        COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_SOURCE_DIR}/external/libmpv/LICENSE.LGPL
+            $<TARGET_FILE_DIR:${PROJECT_NAME}>/LICENSE.lgpl
+    )
+endif()
+
+# Always copy LICENSE
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_SOURCE_DIR}/external/libmpv/libmpv-2.dll
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>/libmpv-2.dll
-    COMMAND ${CMAKE_COMMAND} -E copy
-        ${CMAKE_SOURCE_DIR}/external/libmpv/LICENSE.LGPL
-        $<TARGET_FILE_DIR:${PROJECT_NAME}>/LICENSE.lgpl
     COMMAND ${CMAKE_COMMAND} -E copy
         ${CMAKE_SOURCE_DIR}/LICENSE
         $<TARGET_FILE_DIR:${PROJECT_NAME}>/LICENSE
