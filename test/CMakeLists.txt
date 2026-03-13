@@ -15,8 +15,9 @@ set(UNITY_SRC_DIR ${unity_SOURCE_DIR}/src)
 
 # Test source files
 set(TEST_SOURCES
-    test_time.c
+    test_subtitle.c
     ${CMAKE_SOURCE_DIR}/src/time_utils.c
+    ${CMAKE_SOURCE_DIR}/src/subtitle.c
     ${UNITY_SRC_DIR}/unity.c
 )
 
