@@ -35,6 +35,7 @@ static char** projectList = NULL;
 static Font appFont = { 0 };
 
 static int fontSize=20;
+static int spacing = 2;
 
 static void format_srt_time(double seconds, char* output) {
     int hours = (int)(seconds / 3600);
@@ -390,9 +391,10 @@ int main(int argc, char* argv[]) {
                 Rectangle dst = { cx - logoW*5, cy - 120 - logoH*7, logoW*10, logoH*10 };
                 DrawTexturePro(logoTexture, src, dst, (Vector2){0, 0}, 0.0f, WHITE);
             }
-            
-            DrawTextEx(appFont, "Drag and drop a video file here", (Vector2){ cx - 160, cy - 60 }, fontSize, 2, FOREGROUND_COLOR);
-            DrawTextEx(appFont, "or run: sub-racer.exe <video.mp4>", (Vector2){ cx - 170, cy - 30 }, fontSize, 2, FOREGROUND_COLOR);
+            int tempTextWidth = MeasureTextEx(appFont, "Drag and drop a video file here", fontSize,spacing).x;
+            DrawTextEx(appFont, "Drag and drop a video file here", (Vector2){ cx - tempTextWidth/2, cy - 60 }, fontSize, spacing, FOREGROUND_COLOR);
+            tempTextWidth = MeasureTextEx(appFont, "or run: sub-racer.exe <video.mp4>", fontSize,spacing).x;
+            DrawTextEx(appFont, "or run: sub-racer.exe <video.mp4>", (Vector2){ cx - tempTextWidth/2, cy - 30 }, fontSize, spacing, FOREGROUND_COLOR);
             
             if (projectList) {
                 project_list_free(projectList, projectListCount);
