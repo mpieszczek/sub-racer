@@ -23,6 +23,7 @@ void sublist_free(SubtitleList* list);
 void sublist_add(SubtitleList* list, double start, double end, const char* text);
 void sublist_remove(SubtitleList* list, int index);
 void sublist_clear(SubtitleList* list);
+void sublist_sort(SubtitleList* list);
 
 Subtitle* sublist_get_at_time(SubtitleList* list, double time);
 Subtitle* sublist_get(SubtitleList* list, int index);

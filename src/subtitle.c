@@ -82,3 +82,18 @@ Subtitle* sublist_get(SubtitleList* list, int index) {
     if (index < 0 || index >= list->count) return NULL;
     return &list->items[index];
 }
+
+void sublist_sort(SubtitleList* list) {
+    if (!list || list->count <= 1) return;
+    
+    for (int i = 1; i < list->count; i++) {
+        Subtitle key = list->items[i];
+        int j = i - 1;
+        
+        while (j >= 0 && list->items[j].startTime > key.startTime) {
+            list->items[j + 1] = list->items[j];
+            j--;
+        }
+        list->items[j + 1] = key;
+    }
+}
