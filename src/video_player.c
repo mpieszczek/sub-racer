@@ -118,17 +118,24 @@ bool vp_load(VideoPlayer* vp, const char* filename) {
 
 static void update_video_info(VideoPlayer* vp) {
     int64_t w = 0, h = 0;
+    int64_t dw = 0, dh = 0;
     double dur = 0.0;
     
     mpv_get_property(vp->mpv, "width", MPV_FORMAT_INT64, &w);
     mpv_get_property(vp->mpv, "height", MPV_FORMAT_INT64, &h);
+    mpv_get_property(vp->mpv, "video-params/dw", MPV_FORMAT_INT64, &dw);
+    mpv_get_property(vp->mpv, "video-params/dh", MPV_FORMAT_INT64, &dh);
     mpv_get_property(vp->mpv, "duration", MPV_FORMAT_DOUBLE, &dur);
     
-    if (w > 0 && h > 0 && (!vp->videoReady || vp->width != (int)w || vp->height != (int)h)) {
-        printf("[VideoPlayer] Video info: %dx%d, duration: %.2f\n", (int)w, (int)h, dur);
+    int videoW = (dw > 0) ? (int)dw : (int)w;
+    int videoH = (dh > 0) ? (int)dh : (int)h;
+    
+    if (videoW > 0 && videoH > 0 && (!vp->videoReady || vp->width != videoW || vp->height != videoH)) {
+        printf("[VideoPlayer] Video info: coded %dx%d, display %dx%d, duration %.2f\n", 
+               (int)w, (int)h, videoW, videoH, dur);
         
-        vp->width = (int)w;
-        vp->height = (int)h;
+        vp->width = videoW;
+        vp->height = videoH;
         vp->duration = dur;
         
         int stride = vp->width * 4;
@@ -200,12 +207,12 @@ void vp_update(VideoPlayer* vp) {
 void vp_render(VideoPlayer* vp, Rectangle dest) {
     if (!vp || !vp->videoReady || vp->texture.id == 0) return;
     
-    float scaleX = dest.width / vp->width;
-    float scaleY = dest.height / vp->height;
+    float scaleX = dest.width / (float)vp->width;
+    float scaleY = dest.height / (float)vp->height;
     float scale = (scaleX < scaleY) ? scaleX : scaleY;
     
-    float newWidth = vp->width * scale;
-    float newHeight = vp->height * scale;
+    float newWidth = (float)vp->width * scale;
+    float newHeight = (float)vp->height * scale;
     
     Rectangle src = { 0, 0, (float)vp->width, (float)vp->height };
     Rectangle dst = { 
@@ -221,12 +228,12 @@ void vp_render(VideoPlayer* vp, Rectangle dest) {
 Rectangle vp_get_video_rect(VideoPlayer* vp, Rectangle dest) {
     if (!vp || vp->width <= 0 || vp->height <= 0) return dest;
     
-    float scaleX = dest.width / vp->width;
-    float scaleY = dest.height / vp->height;
+    float scaleX = dest.width / (float)vp->width;
+    float scaleY = dest.height / (float)vp->height;
     float scale = (scaleX < scaleY) ? scaleX : scaleY;
     
-    float newWidth = vp->width * scale;
-    float newHeight = vp->height * scale;
+    float newWidth = (float)vp->width * scale;
+    float newHeight = (float)vp->height * scale;
     
     return (Rectangle){
         dest.x + (dest.width - newWidth) / 2,
