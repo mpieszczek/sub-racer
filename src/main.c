@@ -55,6 +55,7 @@ GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, UI_FG_COLOR_HEX);
         printf("[Font] Loaded Jersey 10 successfully\n");
         GuiSetFont(state.appFont);
     }
+    app_state_calculate_timeline_height(&state, state.appFont);
     
     char logoPath[512];
     snprintf(logoPath, sizeof(logoPath), "%s/resources/logo.png", exeDir);

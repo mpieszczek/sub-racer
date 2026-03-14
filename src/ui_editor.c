@@ -112,9 +112,10 @@ void ui_render_editor(AppState* state) {
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
     int videoW = screenW - SIDE_PANEL_WIDTH;
+    int panelY = screenH - state->timelinePanelHeight;
     
-    render_video_area(state, videoW, screenH);
-    render_timeline_panel(state, videoW, screenH - 100);
+    render_video_area(state, videoW, panelY);
+    render_timeline_panel(state, videoW, panelY);
     render_subtitle_list(state, screenW, screenH);
     render_edit_form(state, screenW, screenH);
     render_export_dialog(state, screenW, screenH);
@@ -122,23 +123,21 @@ void ui_render_editor(AppState* state) {
     EndDrawing();
 }
 
-static void render_video_area(AppState* state, int videoW, int screenH) {
+static void render_video_area(AppState* state, int videoW, int panelY) {
     if (!vp_is_loaded(state->vp)) {
         int screenW = GetScreenWidth();
-        int cy = screenH / 2;
         Font font = state->appFont.texture.id != 0 ? state->appFont : GetFontDefault();
-        DrawTextEx(font, "Loading video...", (Vector2){ videoW/2 - 60, cy }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
+        DrawTextEx(font, "Loading video...", (Vector2){ videoW/2 - 60, panelY/2 }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
         return;
     }
     
-    float margin = 0.1f;
-    Rectangle videoDest = { 0, 0, (float)videoW, (float)(screenH * (1.0f - margin)) };
+    Rectangle videoDest = { 0, 0, (float)videoW, (float)panelY };
     vp_render(state->vp, videoDest);
     
     Rectangle videoRect = vp_get_video_rect(state->vp, videoDest);
     DrawRectangleLinesEx(videoRect, 2.0f, UI_HL_COLOR);
     
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), videoDest)) {
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), videoRect) && !state->showExportMessage && !state->showOverwriteConfirm) {
         if (vp_is_playing(state->vp)) {
             vp_pause(state->vp);
         } else {
@@ -154,7 +153,7 @@ static void render_video_area(AppState* state, int videoW, int screenH) {
 
 static void render_timeline_panel(AppState* state, int videoW, int panelY) {
     int screenH = GetScreenHeight();
-    int panelH = 100;
+    int panelH = state->timelinePanelHeight;
     
     DrawRectangle(0, panelY, videoW, panelH, UI_BG_COLOR);
     DrawRectangleLines(0, panelY, videoW, panelH, UI_FG_COLOR);

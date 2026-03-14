@@ -23,6 +23,19 @@ void app_state_init(AppState* state) {
     state->showExportMessage = false;
     state->exportSuccess = false;
     state->showOverwriteConfirm = false;
+    state->timelinePanelHeight = 100;
+}
+
+void app_state_calculate_timeline_height(AppState* state, Font font) {
+    int fontHeight = (font.texture.id != 0) ? font.baseSize : FONT_SIZE;
+    int sliderHeight = fontHeight;
+    int timeLineHeight = fontHeight;
+    int helpLineHeight = fontHeight;
+    int spacing = 10;
+    int padding = 15;
+    
+    state->timelinePanelHeight = sliderHeight + timeLineHeight + helpLineHeight + 
+                                  spacing * 2 + padding;
 }
 
 void app_state_free(AppState* state) {

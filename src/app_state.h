@@ -42,9 +42,12 @@ typedef struct {
     bool exportSuccess;
     bool showOverwriteConfirm;
     
+    int timelinePanelHeight;
+    
 } AppState;
 
 void app_state_init(AppState* state);
 void app_state_free(AppState* state);
+void app_state_calculate_timeline_height(AppState* state, Font font);
 
 #endif
