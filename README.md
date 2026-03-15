@@ -1,10 +1,8 @@
------------------------------------
-
-_DISCLAIMER:_Welcome to **Sub-Racer**!
+# Welcome to **Sub-Racer**!
 
 This is a subtitle editor for videos built with raylib and libmpv.
-
------------------------------------
+Build avilable on itch.io:
+https://lewita.itch.io/subracer
 
 ## Getting Started
 
@@ -48,7 +46,9 @@ A desktop application for adding subtitles to videos with timeline editing capab
 - Video playback with libmpv
 - Timeline-based subtitle editing
 - SRT export
+- (IN-PROGRESS) Initialization of subtitles with automatic transcription
 - (TO-BE-DONE) Subtitle burning (via ffmpeg)
+
 
 ### Controls
 
