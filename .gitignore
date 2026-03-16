@@ -81,3 +81,6 @@ android.*
 
 CMakePresets.json
 external
+
+# Whisper models (downloaded during build)
+models/*.bin

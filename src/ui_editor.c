@@ -4,16 +4,20 @@
 #include "project.h"
 #include "time_utils.h"
 #include "file_utils.h"
+#include "audio_extract.h"
+#include "whisper_wrapper.h"
 #define RAYGUI_IMPLEMENTATION
 #include "raygui.h"
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 static void render_video_area(AppState* state, int videoW, int screenH);
 static void render_timeline_panel(AppState* state, int videoW, int panelY);
 static void render_subtitle_list(AppState* state, int screenW, int screenH);
 static void render_edit_form(AppState* state, int screenW, int screenH);
 static void render_export_dialog(AppState* state, int screenW, int screenH);
+static void render_transcribe_dialog(AppState* state, int screenW, int screenH);
 
 void ui_render_project_panel(AppState* state) {
     if (!state) return;
@@ -119,6 +123,7 @@ void ui_render_editor(AppState* state) {
     render_subtitle_list(state, screenW, screenH);
     render_edit_form(state, screenW, screenH);
     render_export_dialog(state, screenW, screenH);
+    render_transcribe_dialog(state, screenW, screenH);
     
     EndDrawing();
 }
@@ -137,7 +142,7 @@ static void render_video_area(AppState* state, int videoW, int panelY) {
     Rectangle videoRect = vp_get_video_rect(state->vp, videoDest);
     DrawRectangleLinesEx(videoRect, 2.0f, UI_HL_COLOR);
     
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), videoRect) && !state->showExportMessage && !state->showOverwriteConfirm) {
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), videoRect) && !state->showExportMessage && !state->showOverwriteConfirm && !state->showTranscribeConfirm && !state->showTranscribeProgress && !state->showTranscribeComplete) {
         if (vp_is_playing(state->vp)) {
             vp_pause(state->vp);
         } else {
@@ -199,7 +204,7 @@ static void render_timeline_panel(AppState* state, int videoW, int panelY) {
     Font font = state->appFont.texture.id != 0 ? state->appFont : GetFontDefault();
     DrawTextEx(font, timeText, (Vector2){ 10, panelY + 40 }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
     
-    Rectangle exportBtn = { videoW - 100, panelY + 40, 90, 20 };
+    Rectangle exportBtn = { videoW - 250, panelY + 40, 90, 20 };
     if (GuiButton(exportBtn, "Export")) {
         char srtPath[512];
         strncpy(srtPath, state->currentVideoPath, sizeof(srtPath) - 1);
@@ -213,6 +218,17 @@ static void render_timeline_panel(AppState* state, int videoW, int panelY) {
         } else {
             state->exportSuccess = srt_export_to_video_path(&state->subtitles, state->currentVideoPath, state->exportMessage, sizeof(state->exportMessage));
             state->showExportMessage = true;
+        }
+    }
+    
+    Rectangle transcribeBtn = { videoW - 150, panelY + 40, 140, 20 };
+    if (GuiButton(transcribeBtn, "Auto-Transcribe")) {
+        if (state->subtitles.count > 0) {
+            state->showTranscribeConfirm = true;
+        } else {
+            state->showTranscribeProgress = true;
+            state->transcribeCancel = false;
+            state->transcribeProgress = 0;
         }
     }
     
@@ -408,4 +424,161 @@ bool ui_handle_file_drop(AppState* state) {
     
     UnloadDroppedFiles(droppedFiles);
     return handled;
+}
+
+static void do_transcribe(AppState* state) {
+    if (!state->whisper) {
+        state->whisper = whisper_wrapper_create();
+    }
+    
+    if (!state->whisper) {
+        state->transcribeResultCount = 0;
+        snprintf(state->exportMessage, sizeof(state->exportMessage), "Failed to initialize Whisper");
+        state->showTranscribeProgress = false;
+        state->showTranscribeComplete = true;
+        return;
+    }
+    
+    if (!whisper_wrapper_load_default_model(state->whisper)) {
+        state->transcribeResultCount = 0;
+        snprintf(state->exportMessage, sizeof(state->exportMessage), "Failed to load Whisper model");
+        state->showTranscribeProgress = false;
+        state->showTranscribeComplete = true;
+        return;
+    }
+    
+    char tempWavPath[512];
+    const char* projectsDir = project_get_projects_dir();
+    snprintf(tempWavPath, sizeof(tempWavPath), "%s/temp_audio_%d.wav", projectsDir, (int)GetTime());
+    
+    state->transcribeProgress = 10;
+    
+    if (!audio_extract_to_wav(state->currentVideoPath, tempWavPath, &state->transcribeCancel)) {
+        state->transcribeResultCount = 0;
+        snprintf(state->exportMessage, sizeof(state->exportMessage), "Failed to extract audio from video");
+        state->showTranscribeProgress = false;
+        state->showTranscribeComplete = true;
+        return;
+    }
+    
+    if (state->transcribeCancel) {
+        state->transcribeResultCount = 0;
+        state->showTranscribeComplete = false;
+        state->showTranscribeProgress = false;
+        return;
+    }
+    
+    state->transcribeProgress = 50;
+    
+    TranscriptionResult* result = whisper_wrapper_transcribe(
+        state->whisper,
+        tempWavPath,
+        WHISPER_MAX_SEGMENT_LENGTH,
+        &state->transcribeCancel
+    );
+    
+    remove(tempWavPath);
+    
+    if (!result || !result->success) {
+        state->transcribeResultCount = 0;
+        snprintf(state->exportMessage, sizeof(state->exportMessage), 
+                 result ? result->error_message : "Transcription failed");
+        state->showTranscribeProgress = false;
+        state->showTranscribeComplete = true;
+        if (result) whisper_wrapper_free_result(result);
+        return;
+    }
+    
+    sublist_clear(&state->subtitles);
+    state->subtitles.selectedIndex = -1;
+    
+    for (int i = 0; i < result->segment_count; i++) {
+        Subtitle* seg = &result->segments[i];
+        sublist_add(&state->subtitles, seg->startTime, seg->endTime, seg->text);
+    }
+    
+    srt_save_to_file(&state->subtitles, project_get_working_srt_path());
+    vp_refresh_subtitles(state->vp, project_get_working_srt_path());
+    
+    strncpy(state->transcribeLanguage, result->detected_language, sizeof(state->transcribeLanguage) - 1);
+    state->transcribeResultCount = result->segment_count;
+    
+    whisper_wrapper_free_result(result);
+    
+    state->transcribeProgress = 100;
+    state->showTranscribeComplete = true;
+    state->showTranscribeProgress = false;
+}
+
+static void render_transcribe_dialog(AppState* state, int screenW, int screenH) {
+    if (state->showTranscribeConfirm) {
+        Rectangle confirmBox = { screenW/2 - 180, screenH/2 - 70, 360, 140 };
+        
+        int result = GuiMessageBox(
+            confirmBox,
+            "#198#Overwrite Subtitles?",
+            "Existing subtitles will be replaced.\nContinue with transcription?",
+            "Continue;Cancel"
+        );
+        
+        if (result >= 0) {
+            state->showTranscribeConfirm = false;
+            if (result == 1) {
+                state->showTranscribeProgress = true;
+                state->transcribeCancel = false;
+                state->transcribeProgress = 0;
+            }
+        }
+    }
+    
+    if (state->showTranscribeProgress) {
+        Rectangle progressBox = { screenW/2 - 200, screenH/2 - 60, 400, 120 };
+        
+        DrawRectangleRec(progressBox, UI_BG_COLOR);
+        DrawRectangleLinesEx(progressBox, 2, UI_FG_COLOR);
+        
+        Font font = state->appFont.texture.id != 0 ? state->appFont : GetFontDefault();
+        DrawTextEx(font, "Transcribing...", (Vector2){ progressBox.x + 10, progressBox.y + 10 }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
+        
+        char progressText[64];
+        snprintf(progressText, sizeof(progressText), "Progress: %d%%", state->transcribeProgress);
+        DrawTextEx(font, progressText, (Vector2){ progressBox.x + 10, progressBox.y + 40 }, FONT_SIZE, FONT_SPACING, UI_FG_COLOR);
+        
+        Rectangle progressBar = { progressBox.x + 10, progressBox.y + 70, 280, 25 };
+        float progressFill = state->transcribeProgress / 100.0f;
+        DrawRectangleRec(progressBar, UI_FG_COLOR);
+        Rectangle filledPart = { progressBar.x, progressBar.y, progressBar.width * progressFill, progressBar.height };
+        DrawRectangleRec(filledPart, UI_HL_COLOR);
+        
+        Rectangle cancelBtn = { progressBox.x + 300, progressBox.y + 70, 90, 25 };
+        if (GuiButton(cancelBtn, "Cancel")) {
+            state->transcribeCancel = true;
+            state->showTranscribeProgress = false;
+        }
+        
+        do_transcribe(state);
+    }
+    
+    if (state->showTranscribeComplete) {
+        Rectangle completeBox = { screenW/2 - 180, screenH/2 - 60, 360, 120 };
+        
+        char message[256];
+        if (state->transcribeResultCount > 0) {
+            snprintf(message, sizeof(message), "Created %d subtitles\nLanguage: %s", 
+                     state->transcribeResultCount, state->transcribeLanguage);
+        } else {
+            snprintf(message, sizeof(message), "No speech detected\nor transcription failed");
+        }
+        
+        int result = GuiMessageBox(
+            completeBox,
+            state->transcribeResultCount > 0 ? "#191# Transcription Complete" : "#198# Transcription Failed",
+            message,
+            "OK"
+        );
+        
+        if (result >= 0) {
+            state->showTranscribeComplete = false;
+        }
+    }
 }

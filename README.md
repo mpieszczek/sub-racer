@@ -1,8 +1,23 @@
 # Welcome to **Sub-Racer**!
 
 This is a subtitle editor for videos built with raylib and libmpv.
-Build avilable on itch.io:
+Build available on itch.io:
 https://lewita.itch.io/subracer
+
+## Dependencies & Licenses
+
+This project uses the following libraries:
+- libmpv (LGPL 2.1+) - https://github.com/mpv-player/mpv
+- raylib (zlib/libpng) - https://github.com/raysan5/raylib
+- raygui (MIT) - https://github.com/raysan5/raygui
+- libsamplerate (BSD-2-Clause) - https://github.com/libsndfile/libsamplerate
+- whisper.cpp (MIT) - https://github.com/ggerganov/whisper.cpp
+
+### Whisper Model
+
+The application includes a Whisper base model (ggml-base.bin) for automatic transcription.
+This model is derived from OpenAI's Whisper and is licensed under MIT License.
+See LICENSE.whisper in the build directory.
 
 ## Getting Started
 

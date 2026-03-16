@@ -3,6 +3,7 @@
 
 #include "video_player.h"
 #include "subtitle.h"
+#include "whisper_wrapper.h"
 #include <raylib.h>
 
 #define SCREEN_WIDTH 1280
@@ -42,9 +43,19 @@ typedef struct {
     bool exportSuccess;
     bool showOverwriteConfirm;
     
+    bool showTranscribeConfirm;
+    bool showTranscribeProgress;
+    bool showTranscribeComplete;
+    volatile bool transcribeCancel;
+    int transcribeProgress;
+    int transcribeResultCount;
+    char transcribeLanguage[16];
+    
+    WhisperWrapper* whisper;
+    
     int timelinePanelHeight;
     
-} AppState;
+}AppState;
 
 void app_state_init(AppState* state);
 void app_state_free(AppState* state);

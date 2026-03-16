@@ -119,3 +119,78 @@ endif()
 
 # Unit tests
 add_subdirectory(test)
+
+# ========== WHISPER.CPP ==========
+set(WHISPER_VERSION 1.7.5)
+FetchContent_Declare(whisper
+    DOWNLOAD_EXTRACT_TIMESTAMP OFF
+    URL https://github.com/ggerganov/whisper.cpp/archive/refs/tags/v${WHISPER_VERSION}.tar.gz
+)
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(whisper)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${whisper_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME} whisper)
+
+# ========== LIBSAMPLERATE ==========
+FetchContent_Declare(
+    samplerate
+    DOWNLOAD_EXTRACT_TIMESTAMP OFF
+    URL https://github.com/libsndfile/libsamplerate/archive/refs/tags/0.2.2.tar.gz
+)
+set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+set(LIBSAMPLERATE_EXAMPLES OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(samplerate)
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${samplerate_SOURCE_DIR}/include)
+target_link_libraries(${PROJECT_NAME} samplerate)
+
+# Copy libsamplerate LICENSE (named COPYING in their repo)
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${samplerate_SOURCE_DIR}/COPYING"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/LICENSE.libsamplerate"
+    COMMENT "Copying libsamplerate LICENSE"
+)
+
+# Copy whisper.cpp LICENSE
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${whisper_SOURCE_DIR}/LICENSE"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/LICENSE.whisper"
+    COMMENT "Copying whisper.cpp LICENSE"
+)
+
+# ========== WHISPER MODEL DOWNLOAD ==========
+# Download multilingual base model (MIT licensed, OK to bundle)
+set(WHISPER_MODEL_NAME "ggml-base.bin")
+set(WHISPER_MODEL_URL "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${WHISPER_MODEL_NAME}")
+set(WHISPER_MODEL_DIR "${CMAKE_SOURCE_DIR}/models")
+set(WHISPER_MODEL_PATH "${WHISPER_MODEL_DIR}/${WHISPER_MODEL_NAME}")
+
+# Create models directory if it doesn't exist
+file(MAKE_DIRECTORY "${WHISPER_MODEL_DIR}")
+
+# Download model if not present
+if(NOT EXISTS "${WHISPER_MODEL_PATH}")
+    message(STATUS "Downloading Whisper model (${WHISPER_MODEL_NAME})...")
+    file(DOWNLOAD "${WHISPER_MODEL_URL}" "${WHISPER_MODEL_PATH}"
+         STATUS DOWNLOAD_STATUS
+         SHOW_PROGRESS
+         TLS_VERIFY ON)
+    if(NOT DOWNLOAD_STATUS EQUAL 0)
+        message(WARNING "Failed to download Whisper model. You may need to download manually from:")
+        message(WARNING "  ${WHISPER_MODEL_URL}")
+        message(WARNING "  Place it in: ${WHISPER_MODEL_PATH}")
+    endif()
+endif()
+
+# Copy model to output directory
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${WHISPER_MODEL_PATH}"
+        "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${WHISPER_MODEL_NAME}"
+    COMMENT "Copying Whisper model to output directory"
+)

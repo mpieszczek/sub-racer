@@ -35,3 +35,14 @@ This software uses the following third-party libraries:
 
 - raygui (MIT)
   https://github.com/raysan5/raygui
+
+- libsamplerate (BSD-2-Clause)
+  https://github.com/libsndfile/libsamplerate
+
+- whisper.cpp (MIT)
+  https://github.com/ggerganov/whisper.cpp
+
+Whisper Model
+-------------
+The ggml-base.bin model is derived from OpenAI Whisper (MIT License).
+See LICENSE.whisper in the build directory.

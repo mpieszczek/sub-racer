@@ -23,6 +23,13 @@ void app_state_init(AppState* state) {
     state->showExportMessage = false;
     state->exportSuccess = false;
     state->showOverwriteConfirm = false;
+    state->showTranscribeConfirm = false;
+    state->showTranscribeProgress = false;
+    state->showTranscribeComplete = false;
+    state->transcribeCancel = false;
+    state->transcribeProgress = 0;
+    state->transcribeResultCount = 0;
+    state->whisper = whisper_wrapper_create();
     state->timelinePanelHeight = 100;
 }
 
@@ -55,5 +62,9 @@ void app_state_free(AppState* state) {
         project_list_free(state->projectList, state->projectListCount);
         state->projectList = NULL;
         state->projectListCount = 0;
+    }
+    if (state->whisper) {
+        whisper_wrapper_free(state->whisper);
+        state->whisper = NULL;
     }
 }
