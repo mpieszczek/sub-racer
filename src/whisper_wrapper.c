@@ -551,7 +551,7 @@ TranscriptionResult* whisper_wrapper_transcribe(WhisperWrapper* ww,
     }
     
     struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-    params.language = "pl";
+    params.language = "auto";
     params.translate = false;
     params.print_progress = false;
     params.print_timestamps = false;
