@@ -15,7 +15,7 @@ int main(int argc, char* argv[]) {
     
     GuiLoadStyleDefault();
     GuiSetStyle(DEFAULT, TEXT_SIZE, FONT_SIZE);
-GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, UI_FG_COLOR_HEX);
+    GuiSetStyle(DEFAULT, BORDER_COLOR_NORMAL, UI_FG_COLOR_HEX);
     GuiSetStyle(DEFAULT, BASE_COLOR_NORMAL, UI_BG_COLOR_HEX);
     GuiSetStyle(DEFAULT, TEXT_COLOR_NORMAL, UI_HL_COLOR_HEX);
     

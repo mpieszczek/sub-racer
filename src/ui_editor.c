@@ -257,7 +257,7 @@ static void render_subtitle_list(AppState* state, int screenW, int screenH) {
     if (wheelMove != 0) {
         int maxScroll = state->subtitles.count - visibleItems;
         if (maxScroll < 0) maxScroll = 0;
-        state->subtitleListScroll += wheelMove;
+        state->subtitleListScroll -= wheelMove;
         if (state->subtitleListScroll < 0) state->subtitleListScroll = 0;
         if (state->subtitleListScroll > maxScroll) state->subtitleListScroll = maxScroll;
     }
