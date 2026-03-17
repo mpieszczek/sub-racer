@@ -56,25 +56,29 @@ void ui_render_project_panel(AppState* state) {
         if (listH < 50) listH = 50;
         int itemHeight = 30;
         int visibleItems = listH / itemHeight;
+        int scrollbarWidth = 10;
+        
+        int maxScroll = state->projectListCount - visibleItems;
+        if (maxScroll < 0) maxScroll = 0;
         
         int wheelMove = GetMouseWheelMove();
         if (wheelMove != 0) {
-            int maxScroll = state->projectListCount - visibleItems;
-            if (maxScroll < 0) maxScroll = 0;
-            state->projectListScroll += wheelMove;
+            state->projectListScroll -= wheelMove;
             if (state->projectListScroll < 0) state->projectListScroll = 0;
             if (state->projectListScroll > maxScroll) state->projectListScroll = maxScroll;
         }
         
         if (state->projectListCount <= visibleItems) {
             state->projectListScroll = 0;
-        } else if (state->projectListScroll > state->projectListCount - visibleItems) {
-            state->projectListScroll = state->projectListCount - visibleItems;
+        } else if (state->projectListScroll > maxScroll) {
+            state->projectListScroll = maxScroll;
         }
         
         DrawTextEx(font, "Projects:", (Vector2){ cx - 200, listY - 20 }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
+        
+        int listWidth = 400 - scrollbarWidth - 5;
         for (int i = state->projectListScroll; i < state->projectListCount && i < state->projectListScroll + visibleItems; i++) {
-            Rectangle projRec = { cx - 200, listY + (i - state->projectListScroll) * itemHeight, 400, 25 };
+            Rectangle projRec = { cx - 200, listY + (i - state->projectListScroll) * itemHeight, listWidth, 25 };
             bool isHovered = CheckCollisionPointRec(GetMousePosition(), projRec);
             DrawRectangleRec(projRec, UI_FG_COLOR);
             if (isHovered) DrawRectangleLinesEx(projRec, 1, UI_HL_COLOR);
@@ -101,6 +105,12 @@ void ui_render_project_panel(AppState* state) {
                     }
                 }
             }
+        }
+        
+        if (maxScroll > 0) {
+            Rectangle scrollRec = { cx + 205 - scrollbarWidth, listY, scrollbarWidth, listH };
+            state->projectListScroll = GuiScrollBar(scrollRec, state->projectListScroll, 0, maxScroll);
+            DrawRectangleLinesEx(scrollRec, 1, UI_FG_COLOR);
         }
     }
     
@@ -252,11 +262,13 @@ static void render_subtitle_list(AppState* state, int screenW, int screenH) {
     if (listH < 50) listH = 50;
     int itemHeight = 35;
     int visibleItems = listH / itemHeight;
+    int scrollbarWidth = 10;
+    
+    int maxScroll = state->subtitles.count - visibleItems;
+    if (maxScroll < 0) maxScroll = 0;
     
     int wheelMove = GetMouseWheelMove();
     if (wheelMove != 0) {
-        int maxScroll = state->subtitles.count - visibleItems;
-        if (maxScroll < 0) maxScroll = 0;
         state->subtitleListScroll -= wheelMove;
         if (state->subtitleListScroll < 0) state->subtitleListScroll = 0;
         if (state->subtitleListScroll > maxScroll) state->subtitleListScroll = maxScroll;
@@ -264,10 +276,11 @@ static void render_subtitle_list(AppState* state, int screenW, int screenH) {
     
     if (state->subtitles.count <= visibleItems) {
         state->subtitleListScroll = 0;
-    } else if (state->subtitleListScroll > state->subtitles.count - visibleItems) {
-        state->subtitleListScroll = state->subtitles.count - visibleItems;
+    } else if (state->subtitleListScroll > maxScroll) {
+        state->subtitleListScroll = maxScroll;
     }
     
+    int itemWidth = SIDE_PANEL_WIDTH - 20 - scrollbarWidth - 5;
     for (int i = state->subtitleListScroll; i < state->subtitles.count && i < state->subtitleListScroll + visibleItems + 1; i++) {
         Subtitle* sub = &state->subtitles.items[i];
         
@@ -275,7 +288,7 @@ static void render_subtitle_list(AppState* state, int screenW, int screenH) {
         
         if (itemY < listY || itemY >= listY + listH) continue;
         
-        Rectangle itemRec = { screenW - SIDE_PANEL_WIDTH + 10, itemY, SIDE_PANEL_WIDTH - 20, 30 };
+        Rectangle itemRec = { screenW - SIDE_PANEL_WIDTH + 10, itemY, itemWidth, 30 };
         
         Color itemBg = (i == state->subtitles.selectedIndex) ? UI_HL_COLOR : UI_FG_COLOR;
         DrawRectangleRec(itemRec, itemBg);
@@ -296,6 +309,12 @@ static void render_subtitle_list(AppState* state, int screenW, int screenH) {
         if (CheckCollisionPointRec(GetMousePosition(), itemRec) && IsMouseButtonPressed(MOUSE_LEFT_BUTTON)) {
             action_select_subtitle(state, i);
         }
+    }
+    
+    if (maxScroll > 0) {
+        Rectangle scrollRec = { screenW - scrollbarWidth - 5, listY, scrollbarWidth, listH };
+        state->subtitleListScroll = GuiScrollBar(scrollRec, state->subtitleListScroll, 0, maxScroll);
+        DrawRectangleLinesEx(scrollRec, 1, UI_FG_COLOR);
     }
 }
 
