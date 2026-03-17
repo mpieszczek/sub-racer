@@ -551,12 +551,14 @@ TranscriptionResult* whisper_wrapper_transcribe(WhisperWrapper* ww,
     }
     
     struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    // TODO: test WHISPER_SAMPLING_BEAM_SEARCH vs WHISPER_SAMPLING_GREEDY
     params.language = "auto";
     params.translate = false;
     params.print_progress = false;
     params.print_timestamps = false;
     params.max_len = max_segment_length > 0 ? max_segment_length : WHISPER_MAX_SEGMENT_LENGTH;
     params.token_timestamps = true;
+    params.split_on_word = true;
     
     int ret = whisper_full(ww->ctx, params, samples, n_samples);
     free(samples);
