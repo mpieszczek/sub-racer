@@ -165,7 +165,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 
 # ========== WHISPER MODEL DOWNLOAD ==========
 # Download multilingual base model (MIT licensed, OK to bundle)
-set(WHISPER_MODEL_NAME "ggml-base.bin")
+set(WHISPER_MODEL_NAME "ggml-small.bin")
 set(WHISPER_MODEL_URL "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${WHISPER_MODEL_NAME}")
 set(WHISPER_MODEL_DIR "${CMAKE_SOURCE_DIR}/models")
 set(WHISPER_MODEL_PATH "${WHISPER_MODEL_DIR}/${WHISPER_MODEL_NAME}")
@@ -194,3 +194,6 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
         "$<TARGET_FILE_DIR:${PROJECT_NAME}>/${WHISPER_MODEL_NAME}"
     COMMENT "Copying Whisper model to output directory"
 )
+
+# Pass model name to source code
+target_compile_definitions(${PROJECT_NAME} PRIVATE WHISPER_MODEL_NAME="${WHISPER_MODEL_NAME}")

@@ -4,8 +4,12 @@
 #include "subtitle.h"
 #include <stdbool.h>
 
-#define WHISPER_MODEL_NAME "ggml-base.bin"
-#define WHISPER_MAX_SEGMENT_LENGTH 40
+// WHISPER_MODEL_NAME is defined by CMake
+#ifndef WHISPER_MODEL_NAME
+#error "WHISPER_MODEL_NAME must be defined by CMake"
+#endif
+
+#define WHISPER_MAX_SEGMENT_LENGTH 60
 
 typedef enum {
     RESAMPLE_FASTEST = 0,  // SRC_LINEAR - minimal CPU
