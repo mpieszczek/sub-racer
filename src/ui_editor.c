@@ -18,6 +18,7 @@ static void render_subtitle_list(AppState* state, int screenW, int screenH);
 static void render_edit_form(AppState* state, int screenW, int screenH);
 static void render_export_dialog(AppState* state, int screenW, int screenH);
 static void render_transcribe_dialog(AppState* state, int screenW, int screenH);
+static void render_progress_panel(AppState* state, int screenW, int panelY, int panelHeight);
 
 void ui_render_project_panel(AppState* state) {
     if (!state) return;
@@ -126,7 +127,8 @@ void ui_render_editor(AppState* state) {
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
     int videoW = screenW - SIDE_PANEL_WIDTH;
-    int panelY = screenH - state->timelinePanelHeight;
+    int progressPanelHeight = state->showTranscribeProgress ? PROGRESS_PANEL_HEIGHT :0;
+    int panelY = screenH - state->timelinePanelHeight - progressPanelHeight;
     
     render_video_area(state, videoW, panelY);
     render_timeline_panel(state, videoW, panelY);
@@ -134,6 +136,10 @@ void ui_render_editor(AppState* state) {
     render_edit_form(state, screenW, screenH);
     render_export_dialog(state, screenW, screenH);
     render_transcribe_dialog(state, screenW, screenH);
+    
+    if (state->showTranscribeProgress) {
+        render_progress_panel(state, screenW, screenH-progressPanelHeight, PROGRESS_PANEL_HEIGHT);
+    }
     
     EndDrawing();
 }
@@ -152,7 +158,7 @@ static void render_video_area(AppState* state, int videoW, int panelY) {
     Rectangle videoRect = vp_get_video_rect(state->vp, videoDest);
     DrawRectangleLinesEx(videoRect, 2.0f, UI_HL_COLOR);
     
-    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), videoRect) && !state->showExportMessage && !state->showOverwriteConfirm && !state->showTranscribeConfirm && !state->showTranscribeProgress && !state->showTranscribeComplete) {
+    if (IsMouseButtonPressed(MOUSE_LEFT_BUTTON) && CheckCollisionPointRec(GetMousePosition(), videoRect) && !state->showExportMessage && !state->showOverwriteConfirm && !state->showTranscribeConfirm && !state->showTranscribeComplete) {
         if (vp_is_playing(state->vp)) {
             vp_pause(state->vp);
         } else {
@@ -162,7 +168,19 @@ static void render_video_area(AppState* state, int videoW, int panelY) {
     
     Rectangle backBtn = { 10, 10, 70,30};
     if (GuiButton(backBtn, "<- Back")) {
-        action_goto_project_panel(state);
+        if (state->showTranscribeProgress) {
+            transcribe_thread_request_cancel(&state->transcribeThread);
+            transcribe_thread_join(&state->transcribeThread);
+            const char* srtPath = project_get_working_srt_path();
+            if (srtPath) {
+                sublist_clear(&state->subtitles);
+                srt_load_from_file(&state->subtitles, srtPath);
+                vp_refresh_subtitles(state->vp, srtPath);
+            }
+            state->showTranscribeProgress = false;
+        } else {
+            action_goto_project_panel(state);
+        }
     }
 }
 
@@ -215,6 +233,7 @@ static void render_timeline_panel(AppState* state, int videoW, int panelY) {
     DrawTextEx(font, timeText, (Vector2){ 10, panelY + 40 }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
     
     Rectangle exportBtn = { videoW - 250, panelY + 40, 90, 20 };
+    if (state->showTranscribeProgress) GuiSetState(STATE_DISABLED);
     if (GuiButton(exportBtn, "Export")) {
         char srtPath[512];
         strncpy(srtPath, state->currentVideoPath, sizeof(srtPath) - 1);
@@ -230,8 +249,10 @@ static void render_timeline_panel(AppState* state, int videoW, int panelY) {
             state->showExportMessage = true;
         }
     }
+    if (state->showTranscribeProgress) GuiSetState(STATE_NORMAL);
     
     Rectangle transcribeBtn = { videoW - 150, panelY + 40, 140, 20 };
+    if (state->showTranscribeProgress) GuiSetState(STATE_DISABLED);
     if (GuiButton(transcribeBtn, "Auto-Transcribe")) {
         if (state->subtitles.count > 0) {
             state->showTranscribeConfirm = true;
@@ -252,6 +273,7 @@ static void render_timeline_panel(AppState* state, int videoW, int panelY) {
             }
         }
     }
+    if (state->showTranscribeProgress) GuiSetState(STATE_NORMAL);
     
     char helpText[] = "SPACE: Play/Pause | LEFT/RIGHT: +/-5s | comma/dot: +/- frame";
     DrawTextEx(font, helpText, (Vector2){ 10, panelY + 70 }, FONT_SIZE, FONT_SPACING, UI_FG_COLOR);
@@ -459,7 +481,6 @@ bool ui_handle_file_drop(AppState* state) {
 static void render_transcribe_dialog(AppState* state, int screenW, int screenH) {
     Font font = state->appFont.texture.id != 0 ? state->appFont : GetFontDefault();
     
-    // === CONFIRM DIALOG ===
     if (state->showTranscribeConfirm) {
         Rectangle confirmBox = { screenW/2 - 180, screenH/2 - 70, 360, 140 };
         
@@ -480,7 +501,6 @@ static void render_transcribe_dialog(AppState* state, int screenW, int screenH) 
                 
                 if (transcribe_thread_start(&state->transcribeThread)) {
                     state->showTranscribeProgress = true;
-                    // Clear existing subtitles before transcription
                     sublist_clear(&state->subtitles);
                     state->subtitles.selectedIndex = -1;
                 } else {
@@ -492,103 +512,6 @@ static void render_transcribe_dialog(AppState* state, int screenW, int screenH) 
         }
     }
     
-    // === PROGRESS DIALOG ===
-    if (state->showTranscribeProgress) {
-        Rectangle progressBox = { screenW/2 - 200, screenH/2 - 80, 400, 160 };
-        
-        DrawRectangleRec(progressBox, UI_BG_COLOR);
-        DrawRectangleLinesEx(progressBox, 2, UI_FG_COLOR);
-        
-        // Title
-        DrawTextEx(font, "Transcribing...", 
-                   (Vector2){ progressBox.x + 10, progressBox.y + 10 }, 
-                   FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
-        
-        // Language (if detected)
-        if (state->transcribeThread.detected_language[0] != '\0') {
-            char langText[64];
-            snprintf(langText, sizeof(langText), "Detected: %s", 
-                     state->transcribeThread.detected_language);
-            DrawTextEx(font, langText, 
-                       (Vector2){ progressBox.x + 10, progressBox.y + 35 }, 
-                       FONT_SIZE, FONT_SPACING, UI_FG_COLOR);
-        }
-        
-        // Progress text
-        char progressText[64];
-        snprintf(progressText, sizeof(progressText), "Progress: %d%% (%d segments)", 
-                 state->transcribeThread.progress, state->transcribeThread.segments_count);
-        DrawTextEx(font, progressText, 
-                   (Vector2){ progressBox.x + 10, progressBox.y + 60 }, 
-                   FONT_SIZE, FONT_SPACING, UI_FG_COLOR);
-        
-        // Progress bar
-        Rectangle progressBar = { progressBox.x + 10, progressBox.y + 90, 380, 25 };
-        DrawRectangleRec(progressBar, UI_FG_COLOR);
-        float progressFill = state->transcribeThread.progress / 100.0f;
-        Rectangle filledPart = { progressBar.x, progressBar.y, progressBar.width * progressFill, progressBar.height };
-        DrawRectangleRec(filledPart, UI_HL_COLOR);
-        
-        // Copy new segments to main list (real-time update)
-        int prev_count = state->subtitles.count;
-        transcribe_thread_copy_new_segments(&state->transcribeThread, &state->subtitles);
-        
-        // If new segments were added, save to file and refresh video
-        if (state->subtitles.count > prev_count) {
-            srt_save_to_file(&state->subtitles, project_get_working_srt_path());
-            vp_refresh_subtitles(state->vp, project_get_working_srt_path());
-        }
-        
-        // Cancel button
-        Rectangle cancelBtn = { progressBox.x + 300, progressBox.y + 125, 90, 25 };
-        if (GuiButton(cancelBtn, "Cancel")) {
-            transcribe_thread_request_cancel(&state->transcribeThread);
-            transcribe_thread_join(&state->transcribeThread);
-            
-            // Reload subtitles from working file
-            const char* srtPath = project_get_working_srt_path();
-            if (srtPath) {
-                sublist_clear(&state->subtitles);
-                srt_load_from_file(&state->subtitles, srtPath);
-                vp_refresh_subtitles(state->vp, srtPath);
-            }
-            
-            state->showTranscribeProgress = false;
-        }
-        
-        // Check completion
-        if (transcribe_thread_is_completed(&state->transcribeThread)) {
-            transcribe_thread_join(&state->transcribeThread);
-            
-            // Skip dialog if cancelled (already handled in Cancel button)
-            if (state->transcribeThread.was_cancelled) {
-                state->showTranscribeProgress = false;
-                state->transcribeThread.was_cancelled = false;
-            } else if (transcribe_thread_is_success(&state->transcribeThread)) {
-                strncpy(state->transcribeLanguage, state->transcribeThread.detected_language, 
-                        sizeof(state->transcribeLanguage) - 1);
-                state->transcribeResultCount = state->transcribeThread.segments_count;
-                
-                srt_save_to_file(&state->subtitles, project_get_working_srt_path());
-                vp_refresh_subtitles(state->vp, project_get_working_srt_path());
-                
-                snprintf(state->exportMessage, sizeof(state->exportMessage),
-                         "Transcription complete: %d subtitles", 
-                         state->transcribeResultCount);
-                state->exportSuccess = true;
-                state->showTranscribeProgress = false;
-                state->showTranscribeComplete = true;
-            } else {
-                snprintf(state->exportMessage, sizeof(state->exportMessage),
-                         "%s", state->transcribeThread.error_message);
-                state->exportSuccess = false;
-                state->showTranscribeProgress = false;
-                state->showTranscribeComplete = true;
-            }
-        }
-    }
-    
-    // === COMPLETE DIALOG ===
     if (state->showTranscribeComplete) {
         Rectangle completeBox = { screenW/2 - 200, screenH/2 - 60, 400, 120 };
         
@@ -601,6 +524,90 @@ static void render_transcribe_dialog(AppState* state, int screenW, int screenH) 
         
         if (result >= 0) {
             state->showTranscribeComplete = false;
+        }
+    }
+}
+
+static void render_progress_panel(AppState* state, int screenW, int panelY, int panelHeight) {
+    DrawRectangle(0, panelY, screenW, panelHeight, UI_BG_COLOR);
+    DrawRectangleLines(0, panelY, screenW, panelHeight, UI_FG_COLOR);
+    
+    Font font = state->appFont.texture.id != 0 ? state->appFont : GetFontDefault();
+    
+    char line1[128];
+    if(state->transcribeThread.segments_count==0){
+        snprintf(line1, sizeof(line1), "Transcribing (audio preprocessing)");
+    }
+    else{
+        snprintf(line1, sizeof(line1), "Transcribing (%d segments)", 
+                 state->transcribeThread.segments_count);
+    }
+    DrawTextEx(font, line1, (Vector2){ 10, panelY + 8 }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
+    
+    if (state->transcribeThread.detected_language[0] != '\0') {
+        char langText[64];
+        snprintf(langText, sizeof(langText), "Detected: %s", state->transcribeThread.detected_language);
+        int langWidth = MeasureTextEx(font, langText, FONT_SIZE, FONT_SPACING).x;
+        DrawTextEx(font, langText, (Vector2){ screenW - langWidth - 100, panelY + 8 }, 
+                   FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
+    }
+    
+    int barWidth = screenW - 150;
+    float progress = state->transcribeThread.progress / 100.0f;
+    Rectangle progressRec = { 10, panelY + 35, barWidth, 20 };
+    GuiProgressBar(progressRec, NULL, NULL, &progress, 0.0f, 1.0f);
+    
+    char pctText[16];
+    snprintf(pctText, sizeof(pctText), "%d%%", state->transcribeThread.progress);
+    DrawTextEx(font, pctText, (Vector2){ barWidth + 20, panelY + 35 }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
+    
+    Rectangle cancelBtn = { screenW - 90, panelY + 32, 80, 25 };
+    if (GuiButton(cancelBtn, "Cancel")) {
+        transcribe_thread_request_cancel(&state->transcribeThread);
+        transcribe_thread_join(&state->transcribeThread);
+        const char* srtPath = project_get_working_srt_path();
+        if (srtPath) {
+            sublist_clear(&state->subtitles);
+            srt_load_from_file(&state->subtitles, srtPath);
+            vp_refresh_subtitles(state->vp, srtPath);
+        }
+        state->showTranscribeProgress = false;
+    }
+    
+    int prev_count = state->subtitles.count;
+    transcribe_thread_copy_new_segments(&state->transcribeThread, &state->subtitles);
+    
+    if (state->subtitles.count > prev_count) {
+        srt_save_to_file(&state->subtitles, project_get_working_srt_path());
+        vp_refresh_subtitles(state->vp, project_get_working_srt_path());
+    }
+    
+    if (transcribe_thread_is_completed(&state->transcribeThread)) {
+        transcribe_thread_join(&state->transcribeThread);
+        
+        if (state->transcribeThread.was_cancelled) {
+            state->showTranscribeProgress = false;
+            state->transcribeThread.was_cancelled = false;
+        } else if (transcribe_thread_is_success(&state->transcribeThread)) {
+            strncpy(state->transcribeLanguage, state->transcribeThread.detected_language,
+                    sizeof(state->transcribeLanguage) - 1);
+            state->transcribeResultCount = state->transcribeThread.segments_count;
+            
+            srt_save_to_file(&state->subtitles, project_get_working_srt_path());
+            vp_refresh_subtitles(state->vp, project_get_working_srt_path());
+            
+            snprintf(state->exportMessage, sizeof(state->exportMessage),
+                     "Transcription complete: %d subtitles",
+                     state->transcribeResultCount);
+            state->exportSuccess = true;
+            state->showTranscribeProgress = false;
+            state->showTranscribeComplete = true;
+        } else {
+            snprintf(state->exportMessage, sizeof(state->exportMessage),
+                     "%s", state->transcribeThread.error_message);
+            state->exportSuccess = false;
+            state->showTranscribeProgress = false;
+            state->showTranscribeComplete = true;
         }
     }
 }
