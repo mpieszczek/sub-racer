@@ -236,9 +236,20 @@ static void render_timeline_panel(AppState* state, int videoW, int panelY) {
         if (state->subtitles.count > 0) {
             state->showTranscribeConfirm = true;
         } else {
-            state->showTranscribeProgress = true;
-            state->transcribeCancel = false;
-            state->transcribeProgress = 0;
+            transcribe_thread_init(&state->transcribeThread);
+            strncpy(state->transcribeThread.video_path, state->currentVideoPath, 
+                    sizeof(state->transcribeThread.video_path) - 1);
+            state->transcribeThread.max_segment_length = WHISPER_MAX_SEGMENT_LENGTH;
+            
+            if (transcribe_thread_start(&state->transcribeThread)) {
+                state->showTranscribeProgress = true;
+                sublist_clear(&state->subtitles);
+                state->subtitles.selectedIndex = -1;
+            } else {
+                snprintf(state->exportMessage, sizeof(state->exportMessage),
+                         "Failed to start transcription thread");
+                state->showTranscribeComplete = true;
+            }
         }
     }
     
@@ -445,91 +456,10 @@ bool ui_handle_file_drop(AppState* state) {
     return handled;
 }
 
-static void do_transcribe(AppState* state) {
-    if (!state->whisper) {
-        state->whisper = whisper_wrapper_create();
-    }
-    
-    if (!state->whisper) {
-        state->transcribeResultCount = 0;
-        snprintf(state->exportMessage, sizeof(state->exportMessage), "Failed to initialize Whisper");
-        state->showTranscribeProgress = false;
-        state->showTranscribeComplete = true;
-        return;
-    }
-    
-    if (!whisper_wrapper_load_default_model(state->whisper)) {
-        state->transcribeResultCount = 0;
-        snprintf(state->exportMessage, sizeof(state->exportMessage), "Failed to load Whisper model");
-        state->showTranscribeProgress = false;
-        state->showTranscribeComplete = true;
-        return;
-    }
-    
-    char tempWavPath[512];
-    const char* projectsDir = project_get_projects_dir();
-    snprintf(tempWavPath, sizeof(tempWavPath), "%s/temp_audio_%d.wav", projectsDir, (int)GetTime());
-    
-    state->transcribeProgress = 10;
-    
-    if (!audio_extract_to_wav(state->currentVideoPath, tempWavPath, &state->transcribeCancel)) {
-        state->transcribeResultCount = 0;
-        snprintf(state->exportMessage, sizeof(state->exportMessage), "Failed to extract audio from video");
-        state->showTranscribeProgress = false;
-        state->showTranscribeComplete = true;
-        return;
-    }
-    
-    if (state->transcribeCancel) {
-        state->transcribeResultCount = 0;
-        state->showTranscribeComplete = false;
-        state->showTranscribeProgress = false;
-        return;
-    }
-    
-    state->transcribeProgress = 50;
-    
-    TranscriptionResult* result = whisper_wrapper_transcribe(
-        state->whisper,
-        tempWavPath,
-        WHISPER_MAX_SEGMENT_LENGTH,
-        &state->transcribeCancel
-    );
-    
-    remove(tempWavPath);
-    
-    if (!result || !result->success) {
-        state->transcribeResultCount = 0;
-        snprintf(state->exportMessage, sizeof(state->exportMessage), 
-                 result ? result->error_message : "Transcription failed");
-        state->showTranscribeProgress = false;
-        state->showTranscribeComplete = true;
-        if (result) whisper_wrapper_free_result(result);
-        return;
-    }
-    
-    sublist_clear(&state->subtitles);
-    state->subtitles.selectedIndex = -1;
-    
-    for (int i = 0; i < result->segment_count; i++) {
-        Subtitle* seg = &result->segments[i];
-        sublist_add(&state->subtitles, seg->startTime, seg->endTime, seg->text);
-    }
-    
-    srt_save_to_file(&state->subtitles, project_get_working_srt_path());
-    vp_refresh_subtitles(state->vp, project_get_working_srt_path());
-    
-    strncpy(state->transcribeLanguage, result->detected_language, sizeof(state->transcribeLanguage) - 1);
-    state->transcribeResultCount = result->segment_count;
-    
-    whisper_wrapper_free_result(result);
-    
-    state->transcribeProgress = 100;
-    state->showTranscribeComplete = true;
-    state->showTranscribeProgress = false;
-}
-
 static void render_transcribe_dialog(AppState* state, int screenW, int screenH) {
+    Font font = state->appFont.texture.id != 0 ? state->appFont : GetFontDefault();
+    
+    // === CONFIRM DIALOG ===
     if (state->showTranscribeConfirm) {
         Rectangle confirmBox = { screenW/2 - 180, screenH/2 - 70, 360, 140 };
         
@@ -543,56 +473,129 @@ static void render_transcribe_dialog(AppState* state, int screenW, int screenH) 
         if (result >= 0) {
             state->showTranscribeConfirm = false;
             if (result == 1) {
-                state->showTranscribeProgress = true;
-                state->transcribeCancel = false;
-                state->transcribeProgress = 0;
+                transcribe_thread_init(&state->transcribeThread);
+                strncpy(state->transcribeThread.video_path, state->currentVideoPath, 
+                        sizeof(state->transcribeThread.video_path) - 1);
+                state->transcribeThread.max_segment_length = WHISPER_MAX_SEGMENT_LENGTH;
+                
+                if (transcribe_thread_start(&state->transcribeThread)) {
+                    state->showTranscribeProgress = true;
+                    // Clear existing subtitles before transcription
+                    sublist_clear(&state->subtitles);
+                    state->subtitles.selectedIndex = -1;
+                } else {
+                    snprintf(state->exportMessage, sizeof(state->exportMessage),
+                             "Failed to start transcription thread");
+                    state->showTranscribeComplete = true;
+                }
             }
         }
     }
     
+    // === PROGRESS DIALOG ===
     if (state->showTranscribeProgress) {
-        Rectangle progressBox = { screenW/2 - 200, screenH/2 - 60, 400, 120 };
+        Rectangle progressBox = { screenW/2 - 200, screenH/2 - 80, 400, 160 };
         
         DrawRectangleRec(progressBox, UI_BG_COLOR);
         DrawRectangleLinesEx(progressBox, 2, UI_FG_COLOR);
         
-        Font font = state->appFont.texture.id != 0 ? state->appFont : GetFontDefault();
-        DrawTextEx(font, "Transcribing...", (Vector2){ progressBox.x + 10, progressBox.y + 10 }, FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
+        // Title
+        DrawTextEx(font, "Transcribing...", 
+                   (Vector2){ progressBox.x + 10, progressBox.y + 10 }, 
+                   FONT_SIZE, FONT_SPACING, UI_HL_COLOR);
         
+        // Language (if detected)
+        if (state->transcribeThread.detected_language[0] != '\0') {
+            char langText[64];
+            snprintf(langText, sizeof(langText), "Detected: %s", 
+                     state->transcribeThread.detected_language);
+            DrawTextEx(font, langText, 
+                       (Vector2){ progressBox.x + 10, progressBox.y + 35 }, 
+                       FONT_SIZE, FONT_SPACING, UI_FG_COLOR);
+        }
+        
+        // Progress text
         char progressText[64];
-        snprintf(progressText, sizeof(progressText), "Progress: %d%%", state->transcribeProgress);
-        DrawTextEx(font, progressText, (Vector2){ progressBox.x + 10, progressBox.y + 40 }, FONT_SIZE, FONT_SPACING, UI_FG_COLOR);
+        snprintf(progressText, sizeof(progressText), "Progress: %d%% (%d segments)", 
+                 state->transcribeThread.progress, state->transcribeThread.segments_count);
+        DrawTextEx(font, progressText, 
+                   (Vector2){ progressBox.x + 10, progressBox.y + 60 }, 
+                   FONT_SIZE, FONT_SPACING, UI_FG_COLOR);
         
-        Rectangle progressBar = { progressBox.x + 10, progressBox.y + 70, 280, 25 };
-        float progressFill = state->transcribeProgress / 100.0f;
+        // Progress bar
+        Rectangle progressBar = { progressBox.x + 10, progressBox.y + 90, 380, 25 };
         DrawRectangleRec(progressBar, UI_FG_COLOR);
+        float progressFill = state->transcribeThread.progress / 100.0f;
         Rectangle filledPart = { progressBar.x, progressBar.y, progressBar.width * progressFill, progressBar.height };
         DrawRectangleRec(filledPart, UI_HL_COLOR);
         
-        Rectangle cancelBtn = { progressBox.x + 300, progressBox.y + 70, 90, 25 };
+        // Copy new segments to main list (real-time update)
+        int prev_count = state->subtitles.count;
+        transcribe_thread_copy_new_segments(&state->transcribeThread, &state->subtitles);
+        
+        // If new segments were added, save to file and refresh video
+        if (state->subtitles.count > prev_count) {
+            srt_save_to_file(&state->subtitles, project_get_working_srt_path());
+            vp_refresh_subtitles(state->vp, project_get_working_srt_path());
+        }
+        
+        // Cancel button
+        Rectangle cancelBtn = { progressBox.x + 300, progressBox.y + 125, 90, 25 };
         if (GuiButton(cancelBtn, "Cancel")) {
-            state->transcribeCancel = true;
+            transcribe_thread_request_cancel(&state->transcribeThread);
+            transcribe_thread_join(&state->transcribeThread);
+            
+            // Reload subtitles from working file
+            const char* srtPath = project_get_working_srt_path();
+            if (srtPath) {
+                sublist_clear(&state->subtitles);
+                srt_load_from_file(&state->subtitles, srtPath);
+                vp_refresh_subtitles(state->vp, srtPath);
+            }
+            
             state->showTranscribeProgress = false;
         }
         
-        do_transcribe(state);
+        // Check completion
+        if (transcribe_thread_is_completed(&state->transcribeThread)) {
+            transcribe_thread_join(&state->transcribeThread);
+            
+            // Skip dialog if cancelled (already handled in Cancel button)
+            if (state->transcribeThread.was_cancelled) {
+                state->showTranscribeProgress = false;
+                state->transcribeThread.was_cancelled = false;
+            } else if (transcribe_thread_is_success(&state->transcribeThread)) {
+                strncpy(state->transcribeLanguage, state->transcribeThread.detected_language, 
+                        sizeof(state->transcribeLanguage) - 1);
+                state->transcribeResultCount = state->transcribeThread.segments_count;
+                
+                srt_save_to_file(&state->subtitles, project_get_working_srt_path());
+                vp_refresh_subtitles(state->vp, project_get_working_srt_path());
+                
+                snprintf(state->exportMessage, sizeof(state->exportMessage),
+                         "Transcription complete: %d subtitles", 
+                         state->transcribeResultCount);
+                state->exportSuccess = true;
+                state->showTranscribeProgress = false;
+                state->showTranscribeComplete = true;
+            } else {
+                snprintf(state->exportMessage, sizeof(state->exportMessage),
+                         "%s", state->transcribeThread.error_message);
+                state->exportSuccess = false;
+                state->showTranscribeProgress = false;
+                state->showTranscribeComplete = true;
+            }
+        }
     }
     
+    // === COMPLETE DIALOG ===
     if (state->showTranscribeComplete) {
-        Rectangle completeBox = { screenW/2 - 180, screenH/2 - 60, 360, 120 };
-        
-        char message[256];
-        if (state->transcribeResultCount > 0) {
-            snprintf(message, sizeof(message), "Created %d subtitles\nLanguage: %s", 
-                     state->transcribeResultCount, state->transcribeLanguage);
-        } else {
-            snprintf(message, sizeof(message), "No speech detected\nor transcription failed");
-        }
+        Rectangle completeBox = { screenW/2 - 200, screenH/2 - 60, 400, 120 };
         
         int result = GuiMessageBox(
             completeBox,
-            state->transcribeResultCount > 0 ? "#191# Transcription Complete" : "#198# Transcription Failed",
-            message,
+            state->exportSuccess ? "#191#Complete" : "#198#Error",
+            state->exportMessage,
             "OK"
         );
         

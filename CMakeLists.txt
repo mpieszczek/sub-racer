@@ -197,3 +197,7 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
 
 # Pass model name to source code
 target_compile_definitions(${PROJECT_NAME} PRIVATE WHISPER_MODEL_NAME="${WHISPER_MODEL_NAME}")
+
+# ========== PTHREADS ==========
+find_package(Threads REQUIRED)
+target_link_libraries(${PROJECT_NAME} Threads::Threads)

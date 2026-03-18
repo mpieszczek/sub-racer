@@ -12,6 +12,13 @@
 
 static ResampleQuality resample_quality = RESAMPLE_BEST;
 
+// Abort callback for whisper - returns true when should abort
+static bool whisper_abort_callback(void* user_data) {
+    if (!user_data) return false;
+    volatile bool* cancel_flag = (volatile bool*)user_data;
+    return *cancel_flag;  // Return true to abort
+}
+
 typedef struct {
     int16_t* data;
     int n_samples;
@@ -559,6 +566,193 @@ TranscriptionResult* whisper_wrapper_transcribe(WhisperWrapper* ww,
     params.max_len = max_segment_length > 0 ? max_segment_length : WHISPER_MAX_SEGMENT_LENGTH;
     params.token_timestamps = true;
     params.split_on_word = true;
+    
+    int ret = whisper_full(ww->ctx, params, samples, n_samples);
+    free(samples);
+    
+    if (cancel_flag && *cancel_flag) {
+        result->success = false;
+        snprintf(result->error_message, sizeof(result->error_message), "Cancelled");
+        return result;
+    }
+    
+    if (ret != 0) {
+        result->success = false;
+        snprintf(result->error_message, sizeof(result->error_message),
+                 "Whisper transcription failed: %d", ret);
+        return result;
+    }
+    
+    const char* lang = whisper_lang_str(whisper_full_lang_id(ww->ctx));
+    if (lang) {
+        strncpy(result->detected_language, lang, sizeof(result->detected_language) - 1);
+    }
+    
+    int n_segments = whisper_full_n_segments(ww->ctx);
+    if (n_segments <= 0) {
+        result->success = true;
+        result->segment_count = 0;
+        result->segments = NULL;
+        return result;
+    }
+    
+    result->segments = calloc(n_segments, sizeof(Subtitle));
+    if (!result->segments) {
+        result->success = false;
+        snprintf(result->error_message, sizeof(result->error_message),
+                 "Memory allocation failed");
+        return result;
+    }
+    
+    result->segment_count = n_segments;
+    
+    for (int i = 0; i < n_segments; i++) {
+        int64_t t0 = whisper_full_get_segment_t0(ww->ctx, i);
+        int64_t t1 = whisper_full_get_segment_t1(ww->ctx, i);
+        const char* text = whisper_full_get_segment_text(ww->ctx, i);
+        
+        result->segments[i].startTime = (double)t0 / 100.0;
+        result->segments[i].endTime = (double)t1 / 100.0;
+        result->segments[i].text = strdup(text ? text : "");
+        
+        if (!result->segments[i].text) {
+            result->segments[i].text = strdup("");
+        }
+    }
+    
+    result->success = true;
+    printf("[Whisper] Transcribed %d segments, language: %s\n", n_segments, lang);
+    
+    return result;
+}
+
+TranscriptionResult* whisper_wrapper_transcribe_with_callbacks(WhisperWrapper* ww,
+                                                                  const char* wav_path,
+                                                                  int max_segment_length,
+                                                                  volatile bool* cancel_flag,
+                                                                  whisper_progress_cb progress_callback,
+                                                                  void* progress_user_data,
+                                                                  whisper_segment_cb segment_callback,
+                                                                  void* segment_user_data) {
+    if (!ww || !wav_path || !ww->loaded) {
+        TranscriptionResult* result = calloc(1, sizeof(TranscriptionResult));
+        if (result) {
+            result->success = false;
+            snprintf(result->error_message, sizeof(result->error_message), 
+                     "Whisper not initialized");
+        }
+        return result;
+    }
+    
+    TranscriptionResult* result = calloc(1, sizeof(TranscriptionResult));
+    if (!result) return NULL;
+    
+    WavData* wav = read_wav_file(wav_path);
+    if (!wav) {
+        result->success = false;
+        snprintf(result->error_message, sizeof(result->error_message),
+                 "Cannot read WAV file: %s", wav_path);
+        return result;
+    }
+    
+    int input_frames = wav->n_samples;
+    int input_channels = wav->n_channels;
+    int input_rate = wav->sample_rate;
+    
+    printf("[Whisper] Loaded WAV: frames=%d, channels=%d, rate=%d\n",
+           input_frames, input_channels, input_rate);
+    
+    // Step 1: Convert int16 to float
+    float* input_float = malloc(input_frames * input_channels * sizeof(float));
+    if (!input_float) {
+        free_wav_data(wav);
+        result->success = false;
+        snprintf(result->error_message, sizeof(result->error_message),
+                 "Memory allocation failed");
+        return result;
+    }
+    
+    for (int i = 0; i < input_frames * input_channels; i++) {
+        input_float[i] = (float)wav->data[i] / 32768.0f;
+    }
+    
+    // Step 2: Resample with libsamplerate
+    int resampled_frames = 0;
+    int resampled_channels = 0;
+    float* resampled = resample_with_src_internal(input_float, input_frames, input_channels, 
+                                                   input_rate, 16000, &resampled_frames, &resampled_channels);
+    free(input_float);
+    free_wav_data(wav);
+    
+    if (!resampled || resampled_frames <= 0) {
+        result->success = false;
+        snprintf(result->error_message, sizeof(result->error_message),
+                 "Failed to resample audio");
+        return result;
+    }
+    
+    // Step 3: Convert to mono
+    float* mono_samples = NULL;
+    if (resampled_channels > 1) {
+        mono_samples = malloc(resampled_frames * sizeof(float));
+        if (!mono_samples) {
+            free(resampled);
+            result->success = false;
+            snprintf(result->error_message, sizeof(result->error_message),
+                     "Memory allocation failed");
+            return result;
+        }
+        
+        for (int i = 0; i < resampled_frames; i++) {
+            float sum = 0;
+            for (int ch = 0; ch < resampled_channels; ch++) {
+                sum += resampled[i * resampled_channels + ch];
+            }
+            mono_samples[i] = sum / resampled_channels;
+        }
+        free(resampled);
+    } else {
+        mono_samples = resampled;
+    }
+    
+    // Step 4: Normalize
+    normalize_audio(mono_samples, resampled_frames);
+    
+    int n_samples = resampled_frames;
+    float* samples = mono_samples;
+    
+    if (cancel_flag && *cancel_flag) {
+        free(samples);
+        result->success = false;
+        snprintf(result->error_message, sizeof(result->error_message), "Cancelled");
+        return result;
+    }
+    
+    struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+    params.language = "auto";
+    params.translate = false;
+    params.print_progress = false;
+    params.print_timestamps = false;
+    params.max_len = max_segment_length > 0 ? max_segment_length : WHISPER_MAX_SEGMENT_LENGTH;
+    params.token_timestamps = true;
+    params.split_on_word = true;
+    
+    // Set callbacks
+    if (progress_callback) {
+        params.progress_callback = progress_callback;
+        params.progress_callback_user_data = progress_user_data;
+    }
+    
+    if (segment_callback) {
+        params.new_segment_callback = segment_callback;
+        params.new_segment_callback_user_data = segment_user_data;
+    }
+    
+    // Set abort callback for cancel support
+    if (cancel_flag) {
+        params.abort_callback = whisper_abort_callback;
+        params.abort_callback_user_data = (void*)cancel_flag;
+    }
     
     int ret = whisper_full(ww->ctx, params, samples, n_samples);
     free(samples);

@@ -18,6 +18,11 @@ typedef enum {
 } ResampleQuality;
 
 typedef struct whisper_context whisper_context;
+typedef struct whisper_state whisper_state;
+
+// Callback types
+typedef void (*whisper_progress_cb)(whisper_context* ctx, whisper_state* state, int progress, void* user_data);
+typedef void (*whisper_segment_cb)(whisper_context* ctx, whisper_state* state, int n_new, void* user_data);
 
 typedef struct {
     int segment_count;
@@ -45,6 +50,15 @@ TranscriptionResult* whisper_wrapper_transcribe(WhisperWrapper* ww,
                                                   const char* wav_path,
                                                   int max_segment_length,
                                                   volatile bool* cancel_flag);
+
+TranscriptionResult* whisper_wrapper_transcribe_with_callbacks(WhisperWrapper* ww,
+                                                                  const char* wav_path,
+                                                                  int max_segment_length,
+                                                                  volatile bool* cancel_flag,
+                                                                  whisper_progress_cb progress_callback,
+                                                                  void* progress_user_data,
+                                                                  whisper_segment_cb segment_callback,
+                                                                  void* segment_user_data);
 
 void whisper_wrapper_free_result(TranscriptionResult* result);
 
