@@ -178,6 +178,7 @@ static void render_video_area(AppState* state, int videoW, int panelY) {
                 vp_refresh_subtitles(state->vp, srtPath);
             }
             state->showTranscribeProgress = false;
+            action_goto_project_panel(state);
         } else {
             action_goto_project_panel(state);
         }
